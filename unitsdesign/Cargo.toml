@@ -1,0 +1,18 @@
+[package]
+name = "units"
+version = "0.1.0"
+edition = "2021"
+description = "Rust-based stateless token system for ZK-VM execution environments"
+authors = ["Units Team"]
+
+[lib]
+name = "units"
+path = "src/lib.rs"
+
+[dependencies]
+# No external dependencies for now to match the no_std design
+# In production, would add ed25519-dalek or similar for signature verification
+
+[features]
+default = []
+std = []
