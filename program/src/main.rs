@@ -1,13 +1,13 @@
-use std::collections::BTreeMap;
-use unitsdesign::{
-    aadhaar_token::AadhaarToken,
-    examples::MockStateManager,
-    signature::Ed25519Verifier,
-    traits::{TokenContract, Address, ExecutionContext},
-};
+#![no_main]
+sp1_zkvm::entrypoint!(mint_token);
 
-#[test]
-fn test_token_mint() {
+use unitsdesign::examples::MockStateManager;
+use unitsdesign::signature::Ed25519Verifier;
+use unitsdesign::traits::TokenContract;
+use unitsdesign::{aadhaar_token::AadhaarToken, Address, ExecutionContext};
+use std::collections::BTreeMap;
+
+fn mint_token() {
     let issuer_id: Address = [1u8; 32];
     let recipient: Address = [2u8; 32];
 

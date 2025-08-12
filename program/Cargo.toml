@@ -1,0 +1,13 @@
+[package]
+version = "0.1.0"
+name = "program"
+edition = "2021"
+
+[[bin]]
+name = "program"
+path = "src/main.rs"
+
+[dependencies]
+alloy-sol-types = { workspace = true }
+sp1-zkvm = "5.0.8"
+unitsdesign = { path = "../unitsdesign" }

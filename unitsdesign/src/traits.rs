@@ -1,5 +1,5 @@
 use crate::inclusion_proof::InclusionProof;
-use crate::{
+pub use crate::{
     Address, ExecutionContext, KeyValue, MetadataHash, StateCommitment, StateKey, TokenResult,
     TransactionReceipt,
 };
