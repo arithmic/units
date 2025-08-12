@@ -1,0 +1,22 @@
+[package]
+version = "0.1.0"
+name = "zk-proof"
+edition = "2021"
+default-run = "zk-proof"
+
+[[bin]]
+name = "zk-proof"
+path = "src/bin/main.rs"
+
+[[bin]]
+name = "vkey"
+path = "src/bin/vkey.rs"
+
+[dependencies]
+sp1-sdk = "5.0.8"
+clap = { version = "4.0", features = ["derive", "env"] }
+dotenv = "0.15.0"
+program = {path = "../program"}
+
+[build-dependencies]
+sp1-build = "5.0.8"
