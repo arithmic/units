@@ -16,7 +16,10 @@ path = "src/bin/vkey.rs"
 sp1-sdk = "5.0.8"
 clap = { version = "4.0", features = ["derive", "env"] }
 dotenv = "0.15.0"
-program = {path = "../program"}
-
-[build-dependencies]
+program = { path = "../program" }
 sp1-build = "5.0.8"
+serde = { version = "1.0.219", features = ["derive"] }
+unitsdesign = { path = "../unitsdesign" }
+
+#[build-dependencies]
+#sp1-build = "5.0.8"

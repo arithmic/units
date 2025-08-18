@@ -1,5 +1,6 @@
-
 pub mod aadhaar_token;
+pub mod dummy_token_1;
+pub mod dummy_token_2;
 pub mod examples;
 pub mod execution;
 pub mod inclusion_proof;
@@ -11,7 +12,10 @@ pub mod zk;
 extern crate alloc;
 use alloc::{collections::BTreeMap, vec::Vec};
 
-use crate::{aadhaar_token::AadhaarToken, examples::MockStateManager, signature::Ed25519Verifier, traits::TokenContract};
+use crate::{
+    aadhaar_token::AadhaarToken, examples::MockStateManager, signature::Ed25519Verifier,
+    traits::TokenContract,
+};
 
 pub type Address = [u8; 32];
 pub type StateKey = [u8; 32];
