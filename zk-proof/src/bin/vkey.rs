@@ -2,7 +2,6 @@ use sp1_sdk::{include_elf, HashableKey, Prover, ProverClient};
 use std::fs::read;
 use std::path::PathBuf;
 
-/// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 fn load_program(path: &str) -> Result<Vec<u8>, std::io::Error> {
     let program_path = PathBuf::from(path);
     read(program_path)

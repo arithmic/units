@@ -23,9 +23,6 @@ use unitsdesign::{
     Address, ExecutionContext, KeyValue, MetadataHash, TokenError, TokenResult, TransactionReceipt,
 };
 
-/// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-// pub const UNITS_ELF: &[u8] = include_elf!("program");
-
 /// The arguments for the command.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -35,8 +32,6 @@ struct Args {
 
     #[arg(long)]
     prove: bool,
-    // #[arg(long, default_value = "20")]
-    // n: u32,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -361,8 +356,6 @@ fn mint_token() {{
 }
 
 fn main() {
-    // Args for AadhaarToken.
-
     let issuer_id: Address = [1u8; 32];
     let recipient: Address = [2u8; 32];
     let signature = [0u8; 64];
