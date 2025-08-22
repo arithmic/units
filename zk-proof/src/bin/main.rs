@@ -304,7 +304,9 @@ fn mint_token() {{
 
     build_program_with_args("../program", Default::default());
 
-    let temp = load_program("/Users/bhargav/Projects/units/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/program").unwrap();
+    let temp =
+        load_program("../target/elf-compilation/riscv32im-succinct-zkvm-elf/release/program")
+            .unwrap();
     let UNITS_ELF = temp.as_slice();
 
     // Setup the logger.
