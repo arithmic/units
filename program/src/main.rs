@@ -1,38 +1,36 @@
 #![no_main]
-sp1_zkvm::entrypoint!(mint_token);
 
-use unitsdesign::examples::MockStateManager;
-use unitsdesign::signature::Ed25519Verifier;
+extern crate alloc;
+
+sp1_zkvm::entrypoint!(main);
+
+use alloc::vec;
+use unitsdesign::example_token::MyToken;
 use unitsdesign::traits::TokenContract;
-use unitsdesign::{dummy_token_2::DummyToken2, Address, ExecutionContext};
-use std::collections::BTreeMap;
+use unitsdesign::types::{Address, ExecutionContext, KeyValue};
 
-fn mint_token() {
-    let issuer_id: Address = [1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8, 1u8];
-    let recipient: Address = [2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8, 2u8];
-
-    let token = DummyToken2::new(issuer_id, 1, Ed25519Verifier, MockStateManager);
-
-    let signature = [0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8];
-    let message = b"Mint transaction.";
-    let pre_state = BTreeMap::new();
+fn main() {
+    // Hardcoded values for a single test instance.
+    let signer: Address = [1u8; 32];
+    let pre_state: Vec<KeyValue> = vec![];
+    let input_data: Vec<u8> = vec![];
 
     let ctx = ExecutionContext {
-        signer: issuer_id,
-        signature: &signature,
-        message,
+        signer,
         pre_state: &pre_state,
-        input: &[],
         timestamp: 1638400000,
+        block_id: 1,
+        transaction_hash: [0u8; 32],
+        token_id: "MyToken".to_string(),
+        nonce: 0,
     };
 
-    let metadata_hash = [3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8, 3u8];
-    let result = token.mint(&ctx, recipient, 100, metadata_hash);
-    println!("{:?}", result);
+    let token = MyToken;
+    let result = token.execute(&ctx, "mint", &input_data);
 
-    assert!(result.is_ok());
+    println!("Execution result: {:?}", result);
+    assert!(result.is_ok(), "Transaction execution failed");
 
     let receipt = result.unwrap();
-    assert_eq!(receipt.writes.len(), 1);
-    assert_eq!(receipt.transaction_hash, [0u8; 32]);
+    println!("Transaction executed with {} writes", receipt.writes.len());
 }

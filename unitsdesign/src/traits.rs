@@ -1,31 +1,17 @@
-use crate::inclusion_proof::InclusionProof;
-pub use crate::{
+pub use crate::types::{
     Address, ExecutionContext, KeyValue, MetadataHash, StateCommitment, StateKey, TokenResult,
     TransactionReceipt,
 };
 
 pub trait TokenContract {
-    fn mint(
+    /// The main entry point for all token interactions.
+    /// This function routes calls to the appropriate internal logic based on the `function` name.
+    fn execute(
         &self,
         ctx: &ExecutionContext,
-        to: Address,
-        amount: u64,
-        metadata_hash: MetadataHash,
+        function: &str,
+        input: &[u8],
     ) -> TokenResult<TransactionReceipt>;
-
-    fn burn(&self, ctx: &ExecutionContext, from: Address) -> TokenResult<TransactionReceipt>;
-
-    fn transfer_with_checks<F>(
-        &self,
-        ctx: &ExecutionContext,
-        from: Address,
-        to: Address,
-        checks: &[KeyValue],
-        inclusion_proof: Option<InclusionProof>,
-        custom_check: F,
-    ) -> TokenResult<TransactionReceipt>
-    where
-        F: Fn(&ExecutionContext, &[KeyValue], Option<&InclusionProof>) -> TokenResult<()>;
 }
 
 pub trait SignatureVerifier {
@@ -37,15 +23,5 @@ pub trait SignatureVerifier {
     ) -> TokenResult<()>;
 }
 
-pub trait StateManager {
-    fn get_current_root(&self) -> StateCommitment;
-    fn generate_inclusion_proof(&self, key: &StateKey) -> TokenResult<InclusionProof>;
-    fn update_state(&mut self, writes: &[KeyValue]) -> TokenResult<StateCommitment>;
-    fn verify_state_transition(
-        &self,
-        pre_state: &StateCommitment,
-        post_state: &StateCommitment,
-        writes: &[KeyValue],
-    ) -> TokenResult<bool>;
-}
+
 
