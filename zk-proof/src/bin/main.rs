@@ -3,7 +3,7 @@
 //! This implements the 8-step NFT flow with zero-knowledge proof generation.
 
 use clap::Parser;
-use sp1_sdk::{EnvProver, SP1Stdin};
+use sp1_sdk::{EnvProver, SP1Stdin, SP1ProofWithPublicValues};
 use borsh::{BorshSerialize, BorshDeserialize, to_vec};
 use unitsdesign::nft_token::MyNFTTokenData;
 use unitsdesign::types::{Address, KeyValue, TransactionReceipt};
@@ -16,11 +16,18 @@ use serde::{Serialize, Deserialize};
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(long)]
-    execute: bool,
+    #[command(subcommand)]
+    command: Commands,
+}
 
-    #[arg(long)]
-    prove: bool,
+#[derive(Parser, Debug)]
+enum Commands {
+    /// Execute the program without generating proof
+    Execute,
+    /// Generate and verify a ZK proof
+    Prove,
+    /// Run the full NFT flow with all 8 steps
+    Nftflow,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Debug)]
@@ -98,39 +105,65 @@ fn main() {
     // Parse the command line arguments.
     let args = Args::parse();
 
-    if args.execute == args.prove {
-        eprintln!("Error: You must specify either --execute or --prove");
-        std::process::exit(1);
-    }
-
     // Setup the prover client.
     let client = EnvProver::default();
     
-    // NFT Token Flow Implementation
-    execute_nft_flow(client, &elf, args.execute);
+    // Route to appropriate command
+    match args.command {
+        Commands::Execute => execute_simple(&client, &elf),
+        Commands::Prove => prove_simple(&client, &elf),
+        Commands::Nftflow => execute_nft_flow(&client, &elf),
+    }
 }
 
-fn execute_nft_flow(client: EnvProver, elf: &[u8], execute_only: bool) {
-    println!("=== NFT Token Flow Implementation ===");
+// Simple execute command
+fn execute_simple(client: &EnvProver, elf: &[u8]) {
+    println!("=== Simple Execute Mode ===");
     
-    // Setup admin and recipient addresses
-    let admin_address: Address = [1u8; 32];
+    let (stdin, _nft_data) = create_sample_input();
+    
+    // Execute the program
+    let (output, report) = client.execute(elf, &stdin).run().unwrap();
+    println!("Program executed successfully.");
+    println!("Total instruction count: {}", report.total_instruction_count());
+    println!("Output: {:?}", output);
+    
+    // Try to deserialize and display result
+    if let Ok(token_output) = borsh::from_slice::<TokenOutput>(&output.as_slice()) {
+        println!("Execution result: Success = {}", token_output.success);
+        if let Some(error) = token_output.error {
+            println!("Error: {}", error);
+        }
+    }
+}
+
+// Simple prove command
+fn prove_simple(client: &EnvProver, elf: &[u8]) {
+    println!("=== Simple Prove Mode ===");
+    
+    let (stdin, _nft_data) = create_sample_input();
+    
+    // Generate the proof
+    println!("Generating ZK proof...");
+    let (pk, vk) = client.setup(elf);
+    let proof = client.prove(&pk, &stdin).run().unwrap();
+    println!("Successfully generated proof!");
+    
+    // Save the proof
+    save_proof_to_file(&proof, "simple_proof.bin");
+    println!("Proof saved to simple_proof.bin");
+
+    // Verify the proof
+    client.verify(&proof, &vk).expect("failed to verify proof");
+    println!("Successfully verified proof!");
+}
+
+// Full NFT flow command
+fn execute_nft_flow(client: &EnvProver, elf: &[u8]) {
+    println!("=== NFT Token Flow Implementation ===");
+    let (stdin, nft_data) = create_sample_input();
     let recipient: Address = [2u8; 32];
     let new_owner: Address = [3u8; 32];
-    
-    // Create NFT token data
-    let token_id = [42u8; 32];
-    let unique_identifier = [123u8; 32];
-    let collectible_hash = [255u8; 32];
-    let image_data = vec![0xDE, 0xAD, 0xBE, 0xEF];
-    
-    let nft_data = MyNFTTokenData {
-        token_id,
-        unique_identifier,
-        collectible_hash,
-        owner_id: recipient,
-        collectible_image_data: image_data,
-    };
     
     // Step 1: Validate token
     println!("=== Step 1: Validating Token ===");
@@ -139,86 +172,43 @@ fn execute_nft_flow(client: EnvProver, elf: &[u8], execute_only: bool) {
     if !validation_result.validation_errors.is_empty() {
         println!("Validation errors: {:?}", validation_result.validation_errors);
     }
-    
-    // Prepare input for SP1 program (mint operation)
-    let token_name = [84u8; 32]; // "T" repeated as token identifier
-    let mint_input_data = to_vec(&nft_data).expect("Failed to serialize NFT data");
-    
-    let token_input = TokenInput {
-        token_name,
-        function_name: "mint".to_string(),
-        signer: admin_address,
-        pre_state: vec![],
-        timestamp: 1638400000,
-        block_id: 1,
-        transaction_hash: [0u8; 32],
-        token_id: "NFTToken".to_string(),
-        nonce: 0,
-        input_data: mint_input_data,
-    };
-    
-    let input_bytes = to_vec(&token_input).expect("Failed to serialize token input");
-    
-    let mut stdin = SP1Stdin::new();
-    stdin.write(&input_bytes);
 
-    if execute_only {
-        // Execute the program
-        println!("=== Step 2: Executing Mint Operation ===");
-        let (output, report) = client.execute(elf, &stdin).run().unwrap();
-        println!("Program executed successfully.");
-        println!("Total instruction count: {}", report.total_instruction_count());
-        
-        // Try to deserialize the output to get receipt
-        let receipt = if let Ok(token_output) = borsh::from_slice::<TokenOutput>(&output.as_slice()) {
-            token_output.receipt
-        } else {
-            None
-        };
-        
-        println!("Output: {:?}", output);
-        
-        // Continue with remaining NFT flow steps...
-        run_remaining_nft_steps(&nft_data, recipient, new_owner, receipt);
-    } else {
-        // Generate the proof
-        println!("=== Step 2: Generating ZK Proof for Mint ===");
-        let (pk, vk) = client.setup(elf);
-        let proof = client.prove(&pk, &stdin).run().unwrap();
-        println!("Successfully generated proof!");
+    // Step 2: Generate ZK Proof for Mint
+    println!("=== Step 2: Generating ZK Proof for Mint ===");
+    let (pk, vk) = client.setup(elf);
+    let proof = client.prove(&pk, &stdin).run().unwrap();
+    println!("Successfully generated proof!");
 
-        // Verify the proof
-        client.verify(&proof, &vk).expect("failed to verify proof");
-        println!("Successfully verified proof!");
-        
-        // In prove mode, we don't get the receipt directly, so pass None
-        // Continue with remaining NFT flow steps...
-        run_remaining_nft_steps(&nft_data, recipient, new_owner, None);
-    }
-}
+    // Save the proof
+    save_proof_to_file(&proof, "nft_flow_proof.bin");
+    println!("Proof saved to nft_flow_proof.bin");
 
-fn run_remaining_nft_steps(nft_data: &MyNFTTokenData, recipient: Address, new_owner: Address, mint_receipt: Option<TransactionReceipt>) {
+    // Verify the proof
+    client.verify(&proof, &vk).expect("failed to verify proof");
+    println!("Successfully verified proof!");
+    
+    // Continue with remaining NFT flow steps (inlined)...
     let transaction_id = format!("txn_{}", hex::encode(&nft_data.token_id[..8]));
     
     // Step 3: Initiate transfer
     println!("=== Step 3: Initiating Transfer ===");
-    let transfer_result = initiate_transfer(nft_data, recipient, new_owner);
+    let transfer_result = initiate_transfer(&nft_data, recipient, new_owner);
     println!("Transfer initiated: {:?}", transfer_result);
     
     // Step 4: Generate ZK Proof metadata
     println!("=== Step 4: Generating ZK Proof Metadata ===");
-    let proof_metadata = generate_zk_proof_metadata(&mint_receipt);
+    let proof_metadata = generate_zk_proof_metadata(&proof);
     println!("ZK proof metadata: hash = {}, size = {} bytes", 
              proof_metadata.proof_hash, proof_metadata.proof_size);
     
     // Step 5: Save transaction log
     println!("=== Step 5: Saving Transaction Log ===");
-    let tx_log = save_transaction_log(&transaction_id, nft_data, recipient, new_owner, "transfer", &proof_metadata.proof_hash);
+    let tx_log = save_transaction_log(&transaction_id, &nft_data, recipient, new_owner, "transfer", &proof_metadata.proof_hash);
     println!("Transaction log saved with ID: {}", tx_log.transaction_id);
     
     // Step 6: Commit transfer
     println!("=== Step 6: Committing Transfer ===");
-    let commit_result = commit_transfer(nft_data, new_owner);
+    let commit_result = commit_transfer(&nft_data, new_owner);
     println!("Transfer committed: {}", if commit_result { "SUCCESS" } else { "FAILED" });
     
     // Step 7: Save proof in public ledger
@@ -306,33 +296,37 @@ fn initiate_transfer(nft_data: &MyNFTTokenData, from: Address, to: Address) -> b
 }
 
 // Step 4: Generate ZK Proof Metadata
-fn generate_zk_proof_metadata(receipt: &Option<TransactionReceipt>) -> ZKProofMetadata {
+fn generate_zk_proof_metadata(proof: &SP1ProofWithPublicValues) -> ZKProofMetadata {
     use std::time::{SystemTime, UNIX_EPOCH};
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
     
-    let proof_data = match receipt {
-        Some(r) => {
-            let writes_hash = if !r.writes.is_empty() {
-                format!("writes_{}", r.writes.len())
-            } else {
-                "empty_writes".to_string()
-            };
-            format!("receipt_hash_{}", hex::encode(writes_hash.as_bytes()))
-        },
-        None => "mock_proof_data".to_string(),
-    };
+    // Serialize the proof to get its bytes
+    let proof_bytes = bincode::serialize(proof).unwrap_or_else(|_| vec![]);
+    let proof_size = proof_bytes.len();
     
-    // Generate mock proof hash (in real implementation, this would be the actual proof hash)
-    let proof_hash = format!("proof_{}", hex::encode(proof_data.as_bytes()));
-    let vk_hash = format!("vk_{}", hex::encode("verification_key".as_bytes()));
+    // Generate hash of the actual proof
+    let mut hasher = DefaultHasher::new();
+    proof_bytes.hash(&mut hasher);
+    let proof_hash = format!("proof_{:x}", hasher.finish());
+    
+    // Hash the verification key (we'd need to pass this in real implementation)
+    let mut vk_hasher = DefaultHasher::new();
+    "verification_key".hash(&mut vk_hasher);
+    let vk_hash = format!("vk_{:x}", vk_hasher.finish());
+    
+    // Extract public inputs from the proof's public values
+    let public_values = &proof.public_values;
+    let public_inputs = vec![
+        format!("public_values_size_{}", public_values.as_slice().len()),
+        format!("public_values_hash_{}", hex::encode(&public_values.as_slice()[..8.min(public_values.as_slice().len())])),
+    ];
     
     ZKProofMetadata {
-        proof_hash: proof_hash.clone(),
+        proof_hash,
         verification_key_hash: vk_hash,
-        public_inputs: vec![
-            "token_transfer".to_string(),
-            proof_data,
-        ],
-        proof_size: 1024, // Mock size
+        public_inputs,
+        proof_size,
         generation_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64,
     }
 }
@@ -485,4 +479,71 @@ fn update_transaction_log_with_ledger(transaction_id: &str, ledger_entry: &Ledge
     }
     
     tx_log
+}
+
+// Helper function to create sample input data
+fn create_sample_input() -> (SP1Stdin, MyNFTTokenData) {
+    // Setup admin and recipient addresses
+    let admin_address: Address = [1u8; 32];
+    let recipient: Address = [2u8; 32];
+    
+    // Create NFT token data
+    let token_id = [42u8; 32];
+    let unique_identifier = [123u8; 32];
+    let collectible_hash = [255u8; 32];
+    let image_data = vec![0xDE, 0xAD, 0xBE, 0xEF];
+    
+    let nft_data = MyNFTTokenData {
+        token_id,
+        unique_identifier,
+        collectible_hash,
+        owner_id: recipient,
+        collectible_image_data: image_data,
+    };
+    
+    // Prepare input for SP1 program (mint operation)
+    let token_name = [84u8; 32]; // "T" repeated as token identifier
+    let mint_input_data = to_vec(&nft_data).expect("Failed to serialize NFT data");
+    
+    let token_input = TokenInput {
+        token_name,
+        function_name: "mint".to_string(),
+        signer: admin_address,
+        pre_state: vec![],
+        timestamp: 1638400000,
+        block_id: 1,
+        transaction_hash: [0u8; 32],
+        token_id: "NFTToken".to_string(),
+        nonce: 0,
+        input_data: mint_input_data,
+    };
+    
+    let input_bytes = to_vec(&token_input).expect("Failed to serialize token input");
+    
+    let mut stdin = SP1Stdin::new();
+    stdin.write(&input_bytes);
+    
+    (stdin, nft_data)
+}
+
+// Helper function to save proof to file
+fn save_proof_to_file(proof: &SP1ProofWithPublicValues, filename: &str) {
+    use std::fs::File;
+    use std::io::Write;
+    
+    // Serialize the proof using bincode
+    if let Ok(proof_bytes) = bincode::serialize(proof) {
+        let proof_size = proof_bytes.len();
+        if let Ok(mut file) = File::create(filename) {
+            if file.write_all(&proof_bytes).is_ok() {
+                println!("Proof (size: {} bytes) saved to {}", proof_size, filename);
+            } else {
+                println!("Failed to write proof data to {}", filename);
+            }
+        } else {
+            println!("Failed to create file {}", filename);
+        }
+    } else {
+        println!("Failed to serialize proof");
+    }
 }

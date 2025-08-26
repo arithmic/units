@@ -26,12 +26,14 @@ cd zk-proof
 
 #### Execute (faster, for testing):
 ```bash
-cargo r -r -- --execute
+cargo r -r -- execute
 ```
 
 #### Prove (generates ZK proof):
 ```bash
-cargo r -r -- --prove
+cargo r -r -- prove
+
+cargo r -r -- nftflow
 ```
 
 ## Project Structure
