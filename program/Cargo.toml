@@ -12,3 +12,4 @@ alloy-sol-types = { workspace = true }
 sp1-zkvm = "5.0.8"
 unitsdesign = { path = "../unitsdesign" }
 borsh = { workspace = true }
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }

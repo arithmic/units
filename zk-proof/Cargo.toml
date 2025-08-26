@@ -20,4 +20,6 @@ dotenv = "0.15.0"
 sp1-build = "5.0.8"
 serde = { version = "1.0.219", features = ["derive"] }
 unitsdesign = { path = "../unitsdesign" }
+borsh = { workspace = true }
+bincode = "1.3"
 

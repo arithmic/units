@@ -1,5 +1,7 @@
 extern crate alloc;
 use alloc::{string::String, vec::Vec};
+use borsh::{BorshSerialize, BorshDeserialize};
+use serde::{Serialize, Deserialize};
 
 // Core data structures based on the LLD
 
@@ -8,7 +10,7 @@ pub type StateKey = [u8; 32];
 pub type StateValue = [u8; 32];
 pub type MetadataHash = [u8; 32];
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct KeyValue {
     pub key: StateKey,
     pub value: StateValue,
@@ -45,7 +47,7 @@ pub struct ExecutionContext<'a> {
     pub nonce: u64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub enum TokenError {
     InvalidInput,
     FunctionNotFound,
@@ -57,7 +59,7 @@ pub enum TokenError {
 
 pub type TokenResult<T> = Result<T, TokenError>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, BorshSerialize, BorshDeserialize, Serialize, Deserialize)]
 pub struct TransactionReceipt {
     pub writes: Vec<KeyValue>,
 }
