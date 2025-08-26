@@ -13,6 +13,7 @@ name = "unitsdesign"
 # In production, would add ed25519-dalek or similar for signature verification
 alloy-sol-types = { workspace = true }
 sp1-zkvm = "5.0.8"
+borsh = { version = "1.5.7", default-features = false, features = ["derive"] }
 
 [features]
 default = []

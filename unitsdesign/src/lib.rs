@@ -8,3 +8,4 @@ pub mod types;
 pub mod utils;
 
 pub mod example_token;
+pub mod nft_token;
