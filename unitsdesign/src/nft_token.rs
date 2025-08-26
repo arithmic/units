@@ -1,7 +1,7 @@
 extern crate alloc;
 use alloc::{vec, vec::Vec};
 
-use borsh::{BorshSerialize, BorshDeserialize, from_slice, to_vec};
+use borsh::{from_slice, BorshDeserialize, BorshSerialize};
 
 use crate::traits::TokenContract;
 use crate::types::{
@@ -20,11 +20,15 @@ pub struct MyNFTTokenData {
 
 pub struct NFTToken {
     pub admin_address: Address,
+    pub token_name: [u8; 32], // Fixed identifier for the token
 }
 
 impl NFTToken {
-    pub fn new(admin_address: Address) -> Self {
-        Self { admin_address }
+    pub fn new(admin_address: Address, token_name: [u8; 32]) -> Self {
+        Self {
+            admin_address,
+            token_name,
+        }
     }
 
     fn get_nft_key(token_id: &[u8; 32]) -> [u8; 32] {
@@ -33,12 +37,9 @@ impl NFTToken {
         key
     }
 
-    fn find_nft_owner(
-        token_id: &[u8; 32],
-        pre_state: &[KeyValue],
-    ) -> Option<Address> {
+    fn find_nft_owner(token_id: &[u8; 32], pre_state: &[KeyValue]) -> Option<Address> {
         let nft_key = Self::get_nft_key(token_id);
-        
+
         for kv in pre_state {
             if kv.key == nft_key {
                 let mut owner = [0u8; 32];
@@ -87,46 +88,19 @@ impl NFTToken {
             return Err(TokenError::Unauthorized);
         }
 
-        if input.len() < 132 {
-            return Err(TokenError::InvalidInput);
-        }
+        // Deserialize NFT token data directly using borsh
+        let nft_data = from_slice::<MyNFTTokenData>(input).map_err(|_| TokenError::InvalidInput)?;
 
-        let mut token_id = [0u8; 32];
-        let mut unique_identifier = [0u8; 32];
-        let mut collectible_hash = [0u8; 32];
-        let mut recipient = [0u8; 32];
-        
-        token_id.copy_from_slice(&input[0..32]);
-        unique_identifier.copy_from_slice(&input[32..64]);
-        collectible_hash.copy_from_slice(&input[64..96]);
-        recipient.copy_from_slice(&input[96..128]);
-
-        let image_data_len = u32::from_le_bytes([input[128], input[129], input[130], input[131]]) as usize;
-        
-        if input.len() < 132 + image_data_len {
-            return Err(TokenError::InvalidInput);
-        }
-
-        let collectible_image_data = input[132..132 + image_data_len].to_vec();
-
-        if Self::find_nft_owner(&token_id, ctx.pre_state).is_some() {
+        if Self::find_nft_owner(&nft_data.token_id, ctx.pre_state).is_some() {
             return Err(TokenError::Custom(1)); // Token already exists
         }
 
-        let nft_data = MyNFTTokenData {
-            token_id,
-            unique_identifier,
-            collectible_hash,
-            owner_id: recipient,
-            collectible_image_data,
-        };
-
         // Store only the owner in the state (32 bytes)
         let mut value = [0u8; 32];
-        value.copy_from_slice(&recipient);
+        value.copy_from_slice(&nft_data.owner_id);
 
         let nft_write = KeyValue {
-            key: Self::get_nft_key(&token_id),
+            key: Self::get_nft_key(&nft_data.token_id),
             value,
         };
 
@@ -142,12 +116,12 @@ impl NFTToken {
 
         let mut token_id = [0u8; 32];
         let mut new_owner = [0u8; 32];
-        
+
         token_id.copy_from_slice(&input[0..32]);
         new_owner.copy_from_slice(&input[32..64]);
 
-        let current_owner = Self::find_nft_owner(&token_id, ctx.pre_state)
-            .ok_or(TokenError::Custom(2))?; // Token not found
+        let current_owner =
+            Self::find_nft_owner(&token_id, ctx.pre_state).ok_or(TokenError::Custom(2))?; // Token not found
 
         if current_owner != ctx.signer {
             return Err(TokenError::Unauthorized);
@@ -167,3 +141,4 @@ impl NFTToken {
         })
     }
 }
+

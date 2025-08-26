@@ -9,3 +9,4 @@ resolver = "2"
 
 [workspace.dependencies]
 alloy-sol-types = "1.0"
+borsh = { version = "1.5.7", default-features = false, features = ["derive"] }

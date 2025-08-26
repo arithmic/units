@@ -8,6 +8,7 @@ use alloc::{vec, vec::Vec, string::ToString};
 use unitsdesign::nft_token::{NFTToken, MyNFTTokenData};
 use unitsdesign::traits::TokenContract;
 use unitsdesign::types::{Address, ExecutionContext, KeyValue, TransactionReceipt};
+use borsh::to_vec;
 
 #[derive(Debug)]
 struct TransactionLog {
@@ -110,23 +111,26 @@ fn main() {
     let recipient: Address = [2u8; 32];
     let new_owner: Address = [3u8; 32];
     
-    // Initialize NFT token contract
-    let nft_contract = NFTToken::new(admin_address);
+    // Initialize NFT token contract with token name
+    let token_name = [84u8; 32]; // "T" repeated as token identifier
+    let nft_contract = NFTToken::new(admin_address, token_name);
     
-    // Create mint input data
+    // Create NFT token data
     let token_id = [42u8; 32];
     let unique_identifier = [123u8; 32];
     let collectible_hash = [255u8; 32];
     let image_data = vec![0xDE, 0xAD, 0xBE, 0xEF]; // Sample image data
-    let image_len = image_data.len() as u32;
     
-    let mut mint_input = Vec::new();
-    mint_input.extend_from_slice(&token_id);
-    mint_input.extend_from_slice(&unique_identifier);
-    mint_input.extend_from_slice(&collectible_hash);
-    mint_input.extend_from_slice(&recipient);
-    mint_input.extend_from_slice(&image_len.to_le_bytes());
-    mint_input.extend_from_slice(&image_data);
+    let nft_data = MyNFTTokenData {
+        token_id,
+        unique_identifier,
+        collectible_hash,
+        owner_id: recipient,
+        collectible_image_data: image_data.clone(),
+    };
+    
+    // Serialize NFT data using borsh
+    let mint_input = to_vec(&nft_data).expect("Failed to serialize NFT data");
     
     println!("Mint input size: {}", mint_input.len());
     
@@ -150,14 +154,8 @@ fn main() {
     assert!(mint_result.is_ok(), "Mint operation failed");
     let mint_receipt = mint_result.unwrap();
     
-    // Create NFT data for validation
-    let mut nft_data = MyNFTTokenData {
-        token_id,
-        unique_identifier,
-        collectible_hash,
-        owner_id: recipient,
-        collectible_image_data: image_data,
-    };
+    // Use the same NFT data for validation
+    let mut nft_validation_data = nft_data.clone();
     
     // Step 2: Validate token
     println!("=== Step 2: Validating Token ===");
@@ -182,7 +180,7 @@ fn main() {
     
     // Step 6: Commit transfer
     println!("=== Step 6: Committing Transfer ===");
-    commit_transfer(&mut nft_data, new_owner);
+    commit_transfer(&mut nft_validation_data, new_owner);
     
     // Step 7: Save proof in public ledger
     println!("=== Step 7: Saving Proof to Public Ledger ===");
@@ -193,6 +191,6 @@ fn main() {
     update_tx_log_with_ledger_metadata(tx_log.tx_id, &ledger_record);
     
     println!("=== NFT Transfer Flow Completed Successfully ===");
-    println!("Final token owner: {:?}", nft_data.owner_id);
+    println!("Final token owner: {:?}", nft_validation_data.owner_id);
     println!("Ledger record: Block {}, Index {}", ledger_record.block_id, ledger_record.tx_index);
 }
