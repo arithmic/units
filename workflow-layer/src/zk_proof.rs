@@ -65,7 +65,15 @@ pub fn execute_transaction(
     let (output, _report) = client.execute(elf, &stdin).run()
         .map_err(|e| format!("Failed to execute transaction: {}", e))?;
 
-    Ok(output.as_slice().to_vec())
+    let result = output.as_slice().to_vec();
+    
+    // Debug: log execution details
+    println!("   SP1 execution successful, output length: {} bytes", result.len());
+    if result.len() == 0 {
+        return Err("Program produced no output".to_string());
+    }
+
+    Ok(result)
 }
 
 /// Generate metadata for a ZK proof

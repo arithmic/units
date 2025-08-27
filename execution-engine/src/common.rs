@@ -8,10 +8,11 @@ extern crate alloc;
 use alloc::{string::String, vec::Vec};
 use crate::types::{Address, TransactionReceipt, KeyValue};
 use borsh::{BorshSerialize, BorshDeserialize};
+use serde::{Serialize, Deserialize};
 
 
 /// Input data structure for token transactions
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
+#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionInput {
     pub token_name: [u8; 32],
     pub function_name: String,
@@ -26,7 +27,7 @@ pub struct TransactionInput {
 }
 
 /// Output data structure for token transactions
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
+#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionOutput {
     pub success: bool,
     pub receipt: Option<TransactionReceipt>,

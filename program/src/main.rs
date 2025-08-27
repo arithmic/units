@@ -17,14 +17,13 @@ fn main() {
     // Deserialize the input
     let txn_input = match borsh::from_slice::<TransactionInput>(&input_bytes) {
         Ok(input) => input,
-        Err(e) => {
+        Err(_e) => {
             let output = TransactionOutput {
                 success: false,
                 receipt: None,
-                error: Some(format!("Failed to deserialize input: {}", e)),
+                error: Some("Failed to deserialize input".to_string()),
             };
-            let output_bytes = borsh::to_vec(&output).expect("Failed to serialize output");
-            sp1_zkvm::io::write(1, &output_bytes);
+            sp1_zkvm::io::commit(&output);
             return;
         }
     };
@@ -44,8 +43,7 @@ fn main() {
     let result = route_token_call(&txn_input, &ctx);
 
     // Commit the result
-    let result_bytes = borsh::to_vec(&result).expect("Failed to serialize result");
-    sp1_zkvm::io::write(1, &result_bytes);
+    sp1_zkvm::io::commit(&result);
 }
 
 fn route_token_call(input: &TransactionInput, ctx: &ExecutionContext) -> TransactionOutput {
@@ -63,10 +61,10 @@ fn route_token_call(input: &TransactionInput, ctx: &ExecutionContext) -> Transac
             receipt: Some(receipt),
             error: None,
         },
-        Err(e) => TransactionOutput {
+        Err(_e) => TransactionOutput {
             success: false,
             receipt: None,
-            error: Some(format!("{:?}", e)),
+            error: Some("Execution failed".to_string()),
         },
     }
 }
