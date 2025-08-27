@@ -3,11 +3,11 @@ use alloc::{vec, vec::Vec};
 
 use borsh::{from_slice, BorshDeserialize, BorshSerialize};
 
-use crate::traits::TokenContract;
-use crate::types::{
+use execution_engine::traits::TokenContract;
+use execution_engine::types::{
     Address, ExecutionContext, KeyValue, TokenError, TokenResult, TransactionReceipt,
 };
-use crate::utils::{get_nonce_from_pre_state, hash_nonce_key};
+use execution_engine::utils::{get_nonce_from_pre_state, hash_nonce_key};
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug)]
 pub struct MyNFTTokenData {

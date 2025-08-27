@@ -5,10 +5,10 @@ extern crate alloc;
 sp1_zkvm::entrypoint!(main);
 
 use alloc::vec::Vec;
-use unitsdesign::nft_token::NFTToken;
-use unitsdesign::traits::TokenContract;
-use unitsdesign::types::ExecutionContext;
-use unitsdesign::common::{TransactionInput, TransactionOutput};
+use tokens::nft_token::NFTToken;
+use execution_engine::traits::TokenContract;
+use execution_engine::types::ExecutionContext;
+use execution_engine::common::{TransactionInput, TransactionOutput};
 
 fn main() {
     // Read input from stdin

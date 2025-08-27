@@ -1,11 +1,11 @@
 extern crate alloc;
 use alloc::vec;
 
-use crate::traits::TokenContract;
-use crate::types::{
+use execution_engine::traits::TokenContract;
+use execution_engine::types::{
     ExecutionContext, KeyValue, TokenError, TokenResult, TransactionReceipt,
 };
-use crate::utils::{get_nonce_from_pre_state, hash_nonce_key};
+use execution_engine::utils::{get_nonce_from_pre_state, hash_nonce_key};
 
 pub struct MyToken;
 

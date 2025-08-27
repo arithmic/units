@@ -8,12 +8,12 @@ use sp1_sdk::{EnvProver, SP1ProofWithPublicValues, SP1Stdin};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Write};
-use unitsdesign::common::{
+use execution_engine::common::{
     LedgerEntry, TokenValidationResult, TransactionInput, TransactionLog, TransactionOutput,
     ZKProofMetadata,
 };
-use unitsdesign::nft_token::MyNFTTokenData;
-use unitsdesign::types::Address;
+use tokens::nft_token::MyNFTTokenData;
+use execution_engine::types::Address;
 
 /// The arguments for the command.
 #[derive(Parser, Debug)]

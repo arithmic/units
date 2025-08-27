@@ -1,0 +1,15 @@
+[package]
+name = "tokens"
+version = "0.1.0"
+edition = "2021"
+description = "Token implementations for the execution engine"
+authors = ["Units Team"]
+
+[dependencies]
+execution-engine = { path = "../execution-engine" }
+alloy-sol-types = { workspace = true }
+borsh = { version = "1.5.7", default-features = false, features = ["derive"] }
+
+[features]
+default = []
+std = ["execution-engine/std"]

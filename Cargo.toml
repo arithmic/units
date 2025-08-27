@@ -1,6 +1,7 @@
 [workspace]
 members = [
-    "unitsdesign",
+    "execution-engine",
+    "tokens",
     "program",
     "zk-proof",
 ]

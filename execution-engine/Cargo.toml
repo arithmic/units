@@ -1,12 +1,12 @@
 [package]
-name = "unitsdesign"
+name = "execution-engine"
 version = "0.1.0"
 edition = "2021"
-description = "Rust-based stateless token system for ZK-VM execution environments"
+description = "Core execution engine for stateless token system in ZK-VM environments"
 authors = ["Units Team"]
 
 [lib]
-name = "unitsdesign"
+name = "execution_engine"
 
 [dependencies]
 # No external dependencies for now to match the no_std design
