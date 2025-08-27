@@ -3,16 +3,15 @@
 //! This example demonstrates the UNITS Core Workflow Layer implementation,
 //! showing both the core workflow functions and how they're used in NFT transactions.
 
-use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use borsh::to_vec;
 use execution_engine::common::TransactionInput;
 use execution_engine::types::Address;
-use sp1_sdk::EnvProver;
+use sp1_sdk::{EnvProver, SP1Stdin};
 use tokens::{MyNFTTokenData, TransferInput};
 
-use workflow_layer::execute_transaction;
+
 use workflow_layer::zk_proof::generate_zk_proof;
 
 fn main() {
@@ -46,34 +45,7 @@ fn main() {
     println!("  New Owner: {}", hex::encode(to_address));
     println!();
 
-    let transfer_input = TransferInput {
-        token_id: nft_token.token_id,
-        new_owner: to_address,
-    };
-
-    let transaction_input = TransactionInput {
-        token_name: [84u8; 32],
-        function_name: "transfer".to_string(),
-        signer: [1u8; 32],
-        pre_state: vec![],
-        timestamp: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
-        block_id: 1,
-        transaction_hash: [0u8; 32],
-        token_id: "NFTToken".to_string(),
-        nonce: 0,
-        input_data: to_vec(&transfer_input).expect("Failed to serialize transfer input"),
-    };
-    if let Err(e) = execute_nft_flow(
-        &client,
-        &elf,
-        &mut nft_token,
-        from_address,
-        to_address,
-        &transaction_input,
-    ) {
+    if let Err(e) = execute_nft_flow(&client, &elf, &mut nft_token, from_address, to_address) {
         println!("❌ NFT Flow failed: {}", e);
         return;
     }
@@ -91,7 +63,6 @@ fn execute_nft_flow(
     token: &mut MyNFTTokenData,
     from: Address,
     to: Address,
-    transaction_input: &TransactionInput,
 ) -> Result<(), String> {
     println!("=== 7-Step NFT Flow Using Workflow Layer ===\n");
 
@@ -109,7 +80,26 @@ fn execute_nft_flow(
     // The UNITS ledger will be the set of ordered blocks of such transactions
     // Send block with required information for proof generation
     // Merkle Path-receipts for each transaction in the block can be generated
-    let proof_result = generate_zk_proof(client, elf, transaction_input)?;
+    let transfer_input = TransferInput {
+        token_id: token.token_id,
+        new_owner: to,
+    };
+    let transaction_input = TransactionInput {
+        token_name: [84u8; 32],
+        function_name: "transfer".to_string(),
+        signer: [1u8; 32],
+        pre_state: vec![],
+        timestamp: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        block_id: 1,
+        transaction_hash: [0u8; 32],
+        token_id: "NFTToken".to_string(),
+        nonce: 0,
+        input_data: to_vec(&transfer_input).expect("Failed to serialize transfer input"),
+    };
+    let proof_result = generate_zk_proof(client, elf, &transaction_input)?;
     println!("Successfully generated and verified ZK proof!");
     println!("   ZK proof generated and verified\n");
     println!("proof_result: {:?}", proof_result.metadata);
@@ -174,7 +164,31 @@ fn initiate_nft_transfer(
         nonce: 0,
         input_data: to_vec(&transfer_input).expect("Failed to serialize NFT data"),
     };
-    let res = execute_transaction(client, elf, &transaction_input);
-    println!("res: {:?}", res);
+
+    // Inlined execute_transaction
+    let input_bytes = borsh::to_vec(&transaction_input)
+        .map_err(|e| format!("Failed to serialize transaction input: {}", e))?;
+
+    let mut stdin = SP1Stdin::new();
+    stdin.write(&input_bytes);
+
+    match client.execute(elf, &stdin).run() {
+        Ok((output, report)) => {
+            let result = output.as_slice().to_vec();
+            println!(
+                "   SP1 execution successful, output length: {} bytes",
+                result.len()
+            );
+            if result.len() == 0 {
+                println!("Program produced no output");
+            }
+            println!("res: {:?}", result);
+            println!("report: {:?}", report);
+        }
+        Err(e) => {
+            println!("Failed to execute transaction: {}", e);
+        }
+    }
+
     Ok(transaction_id)
 }

@@ -5,10 +5,10 @@ extern crate alloc;
 sp1_zkvm::entrypoint!(main);
 
 use alloc::vec::Vec;
-use tokens::nft_token::NFTToken;
+use execution_engine::common::{TransactionInput, TransactionOutput};
 use execution_engine::traits::TokenContract;
 use execution_engine::types::ExecutionContext;
-use execution_engine::common::{TransactionInput, TransactionOutput};
+use tokens::nft_token::NFTToken;
 
 fn main() {
     // Read input from stdin
@@ -40,8 +40,8 @@ fn main() {
     };
 
     // Route to appropriate token contract based on token_name
-    let result = route_token_call(&txn_input, &ctx);
-
+    let result: TransactionOutput = route_token_call(&txn_input, &ctx);
+    println!("Transaction result: {:?}", result);
     // Commit the result
     sp1_zkvm::io::commit(&result);
 }
@@ -61,11 +61,10 @@ fn route_token_call(input: &TransactionInput, ctx: &ExecutionContext) -> Transac
             receipt: Some(receipt),
             error: None,
         },
-        Err(_e) => TransactionOutput {
+        Err(e) => TransactionOutput {
             success: false,
             receipt: None,
-            error: Some("Execution failed".to_string()),
+            error: Some(format!("Token execution error: {:?}", e)),
         },
     }
 }
-
