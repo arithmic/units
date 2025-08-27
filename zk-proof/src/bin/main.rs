@@ -1,16 +1,16 @@
 //! NFT Token ZK Proof System
 //! 
-//! This implements the 8-step NFT flow with zero-knowledge proof generation.
+//! This implements the 6-step NFT flow with zero-knowledge proof generation.
 
 use clap::Parser;
 use sp1_sdk::{EnvProver, SP1Stdin, SP1ProofWithPublicValues};
-use borsh::{BorshSerialize, BorshDeserialize, to_vec};
+use borsh::to_vec;
 use unitsdesign::nft_token::MyNFTTokenData;
-use unitsdesign::types::{Address, KeyValue, TransactionReceipt};
+use unitsdesign::types::Address;
+use unitsdesign::common::{TransactionInput, TransactionOutput, TransactionLog, ZKProofMetadata, LedgerEntry, TokenValidationResult};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Write, Read};
-use serde::{Serialize, Deserialize};
 
 /// The arguments for the command.
 #[derive(Parser, Debug)]
@@ -26,69 +26,10 @@ enum Commands {
     Execute,
     /// Generate and verify a ZK proof
     Prove,
-    /// Run the full NFT flow with all 8 steps
+    /// Run the full NFT flow with all 6 logical steps
     Nftflow,
 }
 
-#[derive(BorshSerialize, BorshDeserialize, Debug)]
-struct TokenInput {
-    token_name: [u8; 32],
-    function_name: String,
-    signer: Address,
-    pre_state: Vec<KeyValue>,
-    timestamp: u64,
-    block_id: u64,
-    transaction_hash: [u8; 32],
-    token_id: String,
-    nonce: u64,
-    input_data: Vec<u8>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct TransactionLog {
-    transaction_id: String,
-    token_id: [u8; 32],
-    from_address: Address,
-    to_address: Address,
-    timestamp: u64,
-    operation: String,
-    status: String,
-    proof_hash: Option<String>,
-    ledger_block_id: Option<u64>,
-    ledger_index: Option<u64>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct ZKProofMetadata {
-    proof_hash: String,
-    verification_key_hash: String,
-    public_inputs: Vec<String>,
-    proof_size: usize,
-    generation_time: u64,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct LedgerEntry {
-    block_id: u64,
-    transaction_index: u64,
-    proof_hash: String,
-    timestamp: u64,
-    verification_status: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct TokenValidationResult {
-    is_valid: bool,
-    validation_errors: Vec<String>,
-    token_metadata: HashMap<String, String>,
-}
-
-#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Debug)]
-struct TokenOutput {
-    success: bool,
-    receipt: Option<TransactionReceipt>,
-    error: Option<String>,
-}
 
 fn main() {
     // Setup the logger.
@@ -129,7 +70,7 @@ fn execute_simple(client: &EnvProver, elf: &[u8]) {
     println!("Output: {:?}", output);
     
     // Try to deserialize and display result
-    if let Ok(token_output) = borsh::from_slice::<TokenOutput>(&output.as_slice()) {
+    if let Ok(token_output) = borsh::from_slice::<TransactionOutput>(&output.as_slice()) {
         println!("Execution result: Success = {}", token_output.success);
         if let Some(error) = token_output.error {
             println!("Error: {}", error);
@@ -158,76 +99,72 @@ fn prove_simple(client: &EnvProver, elf: &[u8]) {
     println!("Successfully verified proof!");
 }
 
-// Full NFT flow command
+// Full NFT flow command - 6 logical steps
 fn execute_nft_flow(client: &EnvProver, elf: &[u8]) {
-    println!("=== NFT Token Flow Implementation ===");
+    println!("=== NFT Token Flow Implementation (6 Steps) ===");
     let (stdin, nft_data) = create_sample_input();
     let recipient: Address = [2u8; 32];
     let new_owner: Address = [3u8; 32];
-    
-    // Step 1: Validate token
-    println!("=== Step 1: Validating Token ===");
-    let validation_result = validate_token(&nft_data);
-    println!("Token validation: {}", if validation_result.is_valid { "PASSED" } else { "FAILED" });
-    if !validation_result.validation_errors.is_empty() {
-        println!("Validation errors: {:?}", validation_result.validation_errors);
-    }
-
-    // Step 2: Generate ZK Proof for Mint
-    println!("=== Step 2: Generating ZK Proof for Mint ===");
-    let (pk, vk) = client.setup(elf);
-    let proof = client.prove(&pk, &stdin).run().unwrap();
-    println!("Successfully generated proof!");
-
-    // Save the proof
-    save_proof_to_file(&proof, "nft_flow_proof.bin");
-    println!("Proof saved to nft_flow_proof.bin");
-
-    // Verify the proof
-    client.verify(&proof, &vk).expect("failed to verify proof");
-    println!("Successfully verified proof!");
-    
-    // Continue with remaining NFT flow steps (inlined)...
     let transaction_id = format!("txn_{}", hex::encode(&nft_data.token_id[..8]));
     
-    // Step 3: Initiate transfer
-    println!("=== Step 3: Initiating Transfer ===");
+    // Step 1: Validate transaction input
+    println!("=== Step 1: Validating Transaction Input ===");
+    let validation_result = validate_transaction_input(&nft_data, recipient, new_owner);
+    println!("Input validation: {}", if validation_result.is_valid { "PASSED" } else { "FAILED" });
+    if !validation_result.validation_errors.is_empty() {
+        println!("Validation errors: {:?}", validation_result.validation_errors);
+        return; // Exit if validation fails
+    }
+    
+    // Step 2: Initiate transfer (execute the transaction)
+    println!("=== Step 2: Initiating Transfer & Executing Transaction ===");
     let transfer_result = initiate_transfer(&nft_data, recipient, new_owner);
-    println!("Transfer initiated: {:?}", transfer_result);
+    if !transfer_result {
+        println!("Transfer initiation failed!");
+        return;
+    }
+    println!("Transfer initiated and executed successfully");
     
-    // Step 4: Generate ZK Proof metadata
-    println!("=== Step 4: Generating ZK Proof Metadata ===");
+    // Step 3: Generate ZK proof
+    println!("=== Step 3: Generating ZK Proof ===");
+    let (pk, vk) = client.setup(elf);
+    let proof = client.prove(&pk, &stdin).run().unwrap();
+    println!("Successfully generated ZK proof!");
+    
+    // Verify the proof
+    client.verify(&proof, &vk).expect("Failed to verify proof");
+    println!("Successfully verified ZK proof!");
+    
+    // Step 4: Save to database (mocked - transaction log and proof)
+    println!("=== Step 4: Saving Transaction & Proof to Database (Mocked) ===");
+    save_proof_to_file(&proof, "nft_flow_proof.bin");
+    println!("Proof saved to database (file: nft_flow_proof.bin)");
+    
     let proof_metadata = generate_zk_proof_metadata(&proof);
-    println!("ZK proof metadata: hash = {}, size = {} bytes", 
-             proof_metadata.proof_hash, proof_metadata.proof_size);
-    
-    // Step 5: Save transaction log
-    println!("=== Step 5: Saving Transaction Log ===");
     let tx_log = save_transaction_log(&transaction_id, &nft_data, recipient, new_owner, "transfer", &proof_metadata.proof_hash);
-    println!("Transaction log saved with ID: {}", tx_log.transaction_id);
+    println!("Transaction log saved to database with ID: {}", tx_log.transaction_id);
     
-    // Step 6: Commit transfer
-    println!("=== Step 6: Committing Transfer ===");
-    let commit_result = commit_transfer(&nft_data, new_owner);
-    println!("Transfer committed: {}", if commit_result { "SUCCESS" } else { "FAILED" });
+    // Step 5: Update global state AST (SMT) using transaction receipt (mocked)
+    println!("=== Step 5: Updating Global State AST/SMT (Mocked) ===");
+    let state_update_result = update_global_state_smt(&nft_data, new_owner, &proof_metadata);
+    println!("Global state updated: {}", if state_update_result { "SUCCESS" } else { "FAILED" });
     
-    // Step 7: Save proof in public ledger
-    println!("=== Step 7: Saving Proof to Public Ledger ===");
+    // Step 6: Update transaction log with ledger metadata (mocked)
+    println!("=== Step 6: Publishing to Public Ledger & Updating Transaction Log (Mocked) ===");
     let ledger_entry = save_proof_to_ledger(&proof_metadata.proof_hash);
-    println!("Saved to ledger - Block: {}, Index: {}", ledger_entry.block_id, ledger_entry.transaction_index);
+    println!("Proof published to public ledger - Block: {}, Index: {}", ledger_entry.block_id, ledger_entry.transaction_index);
     
-    // Step 8: Update transaction log with ledger metadata
-    println!("=== Step 8: Updating Transaction Log with Ledger Metadata ===");
     let _updated_log = update_transaction_log_with_ledger(&transaction_id, &ledger_entry);
-    println!("Updated transaction log with ledger metadata");
+    println!("Transaction log updated with ledger metadata");
     
     println!("=== NFT Transfer Flow Completed Successfully ===");
     println!("Final token owner: {:?}", new_owner);
+    println!("Proof hash: {}", proof_metadata.proof_hash);
     println!("Ledger record: Block {}, Index {}", ledger_entry.block_id, ledger_entry.transaction_index);
 }
 
-// Step 1: Token Validation
-fn validate_token(nft_data: &MyNFTTokenData) -> TokenValidationResult {
+// Step 1: Transaction Input Validation
+fn validate_transaction_input(nft_data: &MyNFTTokenData, from: Address, to: Address) -> TokenValidationResult {
     let mut validation_errors = Vec::new();
     let mut token_metadata = HashMap::new();
     
@@ -251,11 +188,22 @@ fn validate_token(nft_data: &MyNFTTokenData) -> TokenValidationResult {
         validation_errors.push("Collectible image data cannot be empty".to_string());
     }
     
+    // Validate transfer addresses
+    if from == to {
+        validation_errors.push("Cannot transfer to the same address".to_string());
+    }
+    
+    if nft_data.owner_id != from {
+        validation_errors.push("Transfer must be initiated by the token owner".to_string());
+    }
+    
     // Add metadata
     token_metadata.insert("token_id_hex".to_string(), hex::encode(nft_data.token_id));
     token_metadata.insert("unique_id_hex".to_string(), hex::encode(nft_data.unique_identifier));
     token_metadata.insert("collectible_hash_hex".to_string(), hex::encode(nft_data.collectible_hash));
     token_metadata.insert("owner_address_hex".to_string(), hex::encode(nft_data.owner_id));
+    token_metadata.insert("from_address_hex".to_string(), hex::encode(from));
+    token_metadata.insert("to_address_hex".to_string(), hex::encode(to));
     token_metadata.insert("image_data_size".to_string(), nft_data.collectible_image_data.len().to_string());
     
     TokenValidationResult {
@@ -265,7 +213,7 @@ fn validate_token(nft_data: &MyNFTTokenData) -> TokenValidationResult {
     }
 }
 
-// Step 3: Initiate Transfer
+// Step 2: Initiate Transfer (Execute Transaction)
 fn initiate_transfer(nft_data: &MyNFTTokenData, from: Address, to: Address) -> bool {
     // Validate the transfer is allowed
     if nft_data.owner_id != from {
@@ -295,7 +243,7 @@ fn initiate_transfer(nft_data: &MyNFTTokenData, from: Address, to: Address) -> b
     true
 }
 
-// Step 4: Generate ZK Proof Metadata
+// Step 3: Generate ZK Proof Metadata
 fn generate_zk_proof_metadata(proof: &SP1ProofWithPublicValues) -> ZKProofMetadata {
     use std::time::{SystemTime, UNIX_EPOCH};
     use std::collections::hash_map::DefaultHasher;
@@ -331,7 +279,7 @@ fn generate_zk_proof_metadata(proof: &SP1ProofWithPublicValues) -> ZKProofMetada
     }
 }
 
-// Step 5: Save Transaction Log
+// Step 4: Save Transaction Log to Database
 fn save_transaction_log(
     transaction_id: &str,
     nft_data: &MyNFTTokenData,
@@ -365,26 +313,35 @@ fn save_transaction_log(
     tx_log
 }
 
-// Step 6: Commit Transfer
-fn commit_transfer(nft_data: &MyNFTTokenData, new_owner: Address) -> bool {
-    // Update ownership state
-    let ownership_state = format!(
-        "{{\"token_id\":\"{}\",\"new_owner\":\"{}\",\"committed_at\":{},\"status\":\"committed\"}}",
+// Step 5: Update Global State AST (SMT) - Mocked
+fn update_global_state_smt(nft_data: &MyNFTTokenData, new_owner: Address, proof_metadata: &ZKProofMetadata) -> bool {
+    // In a real implementation, this would:
+    // 1. Update the Sparse Merkle Tree (SMT) with new state
+    // 2. Compute new state root
+    // 3. Update the global state with transaction receipt key-value pairs
+    // 4. Persist the updated state tree
+    
+    // Mock implementation: simulate state update
+    let state_update = format!(
+        "{{\"operation\":\"state_update\",\"token_id\":\"{}\",\"new_owner\":\"{}\",\"proof_hash\":\"{}\",\"timestamp\":{},\"state_root\":\"mock_state_root_{}\"}}",
         hex::encode(nft_data.token_id),
         hex::encode(new_owner),
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()
+        proof_metadata.proof_hash,
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+        hex::encode(&new_owner[..4]) // Mock state root based on owner
     );
     
-    if let Ok(mut file) = File::create("ownership_state.json") {
-        let _ = file.write_all(ownership_state.as_bytes());
-        println!("Ownership state committed to ownership_state.json");
+    if let Ok(mut file) = File::create("global_state_smt.json") {
+        let _ = file.write_all(state_update.as_bytes());
+        println!("Global state SMT updated and saved to global_state_smt.json");
         return true;
     }
     
     false
 }
 
-// Step 7: Save Proof to Public Ledger
+
+// Step 6: Save Proof to Public Ledger
 fn save_proof_to_ledger(proof_hash: &str) -> LedgerEntry {
     use std::time::{SystemTime, UNIX_EPOCH};
     
@@ -412,7 +369,7 @@ fn save_proof_to_ledger(proof_hash: &str) -> LedgerEntry {
     ledger_entry
 }
 
-// Step 8: Update Transaction Log with Ledger Metadata
+// Step 6 (continued): Update Transaction Log with Ledger Metadata
 fn update_transaction_log_with_ledger(transaction_id: &str, ledger_entry: &LedgerEntry) -> TransactionLog {
     let filename = format!("transaction_log_{}.json", transaction_id);
     
@@ -505,7 +462,7 @@ fn create_sample_input() -> (SP1Stdin, MyNFTTokenData) {
     let token_name = [84u8; 32]; // "T" repeated as token identifier
     let mint_input_data = to_vec(&nft_data).expect("Failed to serialize NFT data");
     
-    let token_input = TokenInput {
+    let token_input = TransactionInput {
         token_name,
         function_name: "mint".to_string(),
         signer: admin_address,
