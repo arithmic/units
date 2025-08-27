@@ -14,7 +14,7 @@ use serde::{Serialize, Deserialize};
 /// Input data structure for token transactions
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionInput {
-    pub token_name: [u8; 32],
+    pub token_name: String,
     pub function_name: String,
     pub signer: Address,
     pub pre_state: Vec<KeyValue>,

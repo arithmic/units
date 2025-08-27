@@ -4,10 +4,13 @@ extern crate alloc;
 
 sp1_zkvm::entrypoint!(main);
 
+use alloc::string::ToString;
 use alloc::vec::Vec;
 use execution_engine::common::{TransactionInput, TransactionOutput};
 use execution_engine::traits::TokenContract;
-use execution_engine::types::ExecutionContext;
+use execution_engine::types::{ExecutionContext, TokenError};
+use tokens::aadhaar_token::AadhaarToken;
+use tokens::example_token::MyToken;
 use tokens::nft_token::NFTToken;
 
 fn main() {
@@ -41,21 +44,33 @@ fn main() {
 
     // Route to appropriate token contract based on token_name
     let result: TransactionOutput = route_token_call(&txn_input, &ctx);
-    println!("Transaction result: {:?}", result);
     // Commit the result
     sp1_zkvm::io::commit(&result);
 }
 
 fn route_token_call(input: &TransactionInput, ctx: &ExecutionContext) -> TransactionOutput {
-    // For now there is a single nft token, we'll assume all token names route to NFT
-    // In the future, you could add other token types here
+    let result = match input.token_name.as_str() {
+        "NFT" => {
+            let admin_address = [1u8; 32]; // For now, hardcoded
+            let mut token_name_bytes = [0u8; 32];
+            let name_bytes = input.token_name.as_bytes();
+            let copy_len = name_bytes.len().min(32);
+            token_name_bytes[..copy_len].copy_from_slice(&name_bytes[..copy_len]);
+            let nft_contract = NFTToken::new(admin_address, token_name_bytes);
+            nft_contract.execute(ctx, &input.function_name, &input.input_data)
+        }
+        "MyToken" => {
+            let my_token_contract = MyToken;
+            my_token_contract.execute(ctx, &input.function_name, &input.input_data)
+        }
+        "Aadhaar" => {
+            let aadhaar_contract = AadhaarToken::new([0u8; 32], [0u8; 32]);
+            aadhaar_contract.execute(ctx, &input.function_name, &input.input_data)
+        }
+        _ => Err(TokenError::Custom("Unknown token".to_string())),
+    };
 
-    // Create NFT contract (admin address would be passed in input in real implementation)
-    let admin_address = [1u8; 32]; // For now, hardcoded
-    let nft_contract = NFTToken::new(admin_address, input.token_name);
-
-    // Execute the function
-    match nft_contract.execute(ctx, &input.function_name, &input.input_data) {
+    match result {
         Ok(receipt) => TransactionOutput {
             success: true,
             receipt: Some(receipt),

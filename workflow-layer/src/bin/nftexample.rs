@@ -6,18 +6,15 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use borsh::to_vec;
-use execution_engine::common::TransactionInput;
-use execution_engine::types::Address;
+use execution_engine::{
+    common::{TransactionInput, TransactionOutput},
+    types::{Address, KeyValue},
+};
 use sp1_sdk::{EnvProver, SP1Stdin};
-use tokens::{MyNFTTokenData, TransferInput};
-
-
+use tokens::{MintInput, MyNFTTokenData, TransferInput};
 use workflow_layer::zk_proof::generate_zk_proof;
 
 fn main() {
-    println!("=== UNITS Core Workflow Layer Demo ===");
-    println!("Demonstrating core workflow functions and NFT transaction processing\n");
-
     // Setup SP1 environment
     sp1_sdk::utils::setup_logger();
     dotenv::dotenv().ok();
@@ -30,7 +27,6 @@ fn main() {
 
     // Create example NFT token
     let mut nft_token = MyNFTTokenData {
-        token_id: [42u8; 32],
         unique_identifier: [123u8; 32],
         collectible_hash: [255u8; 32],
         owner_id: [2u8; 32],
@@ -40,7 +36,10 @@ fn main() {
     let to_address: Address = [3u8; 32];
 
     println!("Demo NFT Token:");
-    println!("  Token ID: {}", hex::encode(nft_token.token_id));
+    println!(
+        "  Unique Identifier: {}",
+        hex::encode(nft_token.unique_identifier)
+    );
     println!("  Current Owner: {}", hex::encode(from_address));
     println!("  New Owner: {}", hex::encode(to_address));
     println!();
@@ -66,29 +65,46 @@ fn execute_nft_flow(
 ) -> Result<(), String> {
     println!("=== 7-Step NFT Flow Using Workflow Layer ===\n");
 
-    // Step 1 (future): Validate token and transfer, uses Workflow Layer's validate_identity_and_policy() architecture
-    println!("Step 1: validate_nft_token() - Token and transfer validation");
+    // Step 1 (future): Validate request from Application, uses Workflow Layer's validate_identity_and_policy() architecture
+    // Step 2: Mint the NFT to create an initial state
+    println!("Step 2: Mint NFT to create initial state");
+    let admin_address = [1u8; 32];
+    let mint_input = MintInput {
+        unique_identifier: token.unique_identifier,
+        collectible_hash: token.collectible_hash,
+        owner_id: from,
+        collectible_image_data: token.collectible_image_data.clone(),
+    };
+    let mint_transaction_input = TransactionInput {
+        token_name: "NFT".to_string(),
+        function_name: "mint".to_string(),
+        signer: admin_address,
+        pre_state: vec![],
+        timestamp: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        block_id: 1,
+        transaction_hash: [0u8; 32],
+        token_id: "NFTToken".to_string(),
+        nonce: 0,
+        input_data: to_vec(&mint_input).expect("Failed to serialize mint input"),
+    };
 
-    // Step 2: Initiate transfer and create transaction log
-    println!("Step 2: initiate_nft_transfer() - Create transaction log");
-    let transaction_id = initiate_nft_transfer(token, from, to, client, elf)?;
+    let mint_writes = execute_transaction(client, elf, &mint_transaction_input)?;
+    println!("   NFT minted successfully, state created.\n");
 
-    // Step 3: Generate ZK proof
-    println!("Step 3: generate_zk_proof_for_nft_transaction() - Generate ZK proof");
-    println!("   Uses Workflow Layer's execute_with_kernel() architecture");
-    // 3a: Future - Create ordering of executed transactions and block them
-    // The UNITS ledger will be the set of ordered blocks of such transactions
-    // Send block with required information for proof generation
-    // Merkle Path-receipts for each transaction in the block can be generated
+    // Step 3: Initiate transfer and create transaction log
+    println!("Step 3: initiate_nft_transfer() - Create transaction log");
     let transfer_input = TransferInput {
-        token_id: token.token_id,
+        unique_identifier: token.unique_identifier,
         new_owner: to,
     };
-    let transaction_input = TransactionInput {
-        token_name: [84u8; 32],
+    let transfer_transaction_input = TransactionInput {
+        token_name: "NFT".to_string(),
         function_name: "transfer".to_string(),
-        signer: [1u8; 32],
-        pre_state: vec![],
+        signer: from,
+        pre_state: mint_writes,
         timestamp: SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -99,96 +115,58 @@ fn execute_nft_flow(
         nonce: 0,
         input_data: to_vec(&transfer_input).expect("Failed to serialize transfer input"),
     };
-    let proof_result = generate_zk_proof(client, elf, &transaction_input)?;
+
+    let transfer_writes = execute_transaction(client, elf, &transfer_transaction_input)?;
+    println!("   NFT transfer executed successfully.\n");
+
+    // Step 4: Generate ZK proof
+    println!("Step 4: generate_zk_proof() - Generate and verify ZK proof");
+    let proof_result = generate_zk_proof(client, elf, &transfer_transaction_input)?;
     println!("Successfully generated and verified ZK proof!");
-    println!("   ZK proof generated and verified\n");
     println!("proof_result: {:?}", proof_result.metadata);
 
-    // Step 4: Save transaction log and proof to database
-    println!("Step 4: save_nft_tx_log() - Save to database");
-    println!("   Uses Workflow Layer's apply_state_changes() architecture");
-    println!("   Transaction log and proof saved to database\n");
+    // Step 5: Save transaction log and proof to database
 
-    // Step 5: Commit transfer (update token state)
-    println!("Step 5: commit_nft_transfer() - Update token states");
+    // Step 6: Commit transfer (update token state)
     println!("   Uses Workflow Layer's StateStore with CAS operations");
-    // Update global state with CAS operations and canonical lock ordering
     token.owner_id = to;
-    println!("Global state updated with new token ownership");
-    println!("   Token ownership transferred to new owner\n");
 
-    // Step 6: Save to public ledger (blockchain)
-    println!("Step 6: save_nft_proof_in_public_ledger() - Save to blockchain");
-    println!("   Uses Workflow Layer's create_transaction_receipt() architecture");
-    println!("   Proof published to ledger\n");
+    // Step 7: Save to public ledger (blockchain)
 
-    // Step 7: Update transaction log with ledger metadata
-    println!("Step 7: update_nft_tx_log_with_ledger_metadata()");
-    println!("   Completes Workflow Layer's audit trail (Web2 principals <-> Web3 keys)");
-    println!("   Transaction log updated with blockchain metadata\n");
+    // Step 8: Update transaction log with ledger metadata
 
-    println!("7-Step NFT Flow Completed Successfully!");
+    println!("8-Step NFT Flow Completed Successfully!");
     println!("   Final token owner: {}", hex::encode(to));
     println!("   Proof hash: {}", proof_result.metadata.proof_hash);
 
     Ok(())
 }
 
-fn initiate_nft_transfer(
-    token: &MyNFTTokenData,
-    from: Address,
-    to: Address,
+fn execute_transaction(
     client: &EnvProver,
     elf: &[u8],
-) -> Result<String, String> {
-    let transaction_id = format!("txn_{}", hex::encode(&token.token_id[..8]));
-
-    // future: Prefetch the reads
-    // Create transaction input for execution
-    let transfer_input = TransferInput {
-        token_id: token.token_id,
-        new_owner: to,
-    };
-    let transaction_input = TransactionInput {
-        token_name: [84u8; 32],
-        function_name: "transfer".to_string(),
-        signer: from,
-        pre_state: vec![],
-        timestamp: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
-        block_id: 1,
-        transaction_hash: [0u8; 32],
-        token_id: "NFTToken".to_string(),
-        nonce: 0,
-        input_data: to_vec(&transfer_input).expect("Failed to serialize NFT data"),
-    };
-
-    // Inlined execute_transaction
-    let input_bytes = borsh::to_vec(&transaction_input)
-        .map_err(|e| format!("Failed to serialize transaction input: {}", e))?;
+    transaction_input: &TransactionInput,
+) -> Result<Vec<KeyValue>, String> {
+    let input_bytes = borsh::to_vec(transaction_input)
+        .map_err(|e| format!("Failed to serialize input: {}", e))?;
 
     let mut stdin = SP1Stdin::new();
     stdin.write(&input_bytes);
 
-    match client.execute(elf, &stdin).run() {
-        Ok((output, report)) => {
-            let result = output.as_slice().to_vec();
-            println!(
-                "   SP1 execution successful, output length: {} bytes",
-                result.len()
-            );
-            if result.len() == 0 {
-                println!("Program produced no output");
-            }
-            println!("res: {:?}", result);
-            println!("report: {:?}", report);
-        }
-        Err(e) => {
-            println!("Failed to execute transaction: {}", e);
-        }
+    let (output, _report) = client
+        .execute(elf, &stdin)
+        .run()
+        .map_err(|e| format!("Failed to execute transaction: {}", e))?;
+
+    let output: TransactionOutput = bincode::deserialize(&output.as_slice())
+        .map_err(|e| format!("Failed to deserialize output: {}", e))?;
+
+    if !output.success {
+        return Err(format!(
+            "Transaction failed: {}",
+            output.error.unwrap_or_default()
+        ));
     }
 
-    Ok(transaction_id)
+    Ok(output.receipt.unwrap().writes)
 }

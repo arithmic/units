@@ -54,7 +54,7 @@ pub enum TokenError {
     Unauthorized,
     StateMismatch,
     InvalidNonce,
-    Custom(u8),
+    Custom(String),
 }
 
 pub type TokenResult<T> = Result<T, TokenError>;
