@@ -4,6 +4,7 @@ members = [
     "tokens",
     "program",
     "zk-proof",
+    "workflow-layer",
 ]
 resolver = "2"
 

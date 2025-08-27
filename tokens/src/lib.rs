@@ -6,4 +6,4 @@ pub mod example_token;
 pub mod nft_token;
 
 pub use example_token::MyToken;
-pub use nft_token::{NFTToken, MyNFTTokenData};
+pub use nft_token::{NFTToken, MyNFTTokenData, AadhaarToken};

@@ -23,7 +23,8 @@ fn main() {
                 receipt: None,
                 error: Some(format!("Failed to deserialize input: {}", e)),
             };
-            sp1_zkvm::io::commit(&output);
+            let output_bytes = borsh::to_vec(&output).expect("Failed to serialize output");
+            sp1_zkvm::io::write(1, &output_bytes);
             return;
         }
     };
@@ -43,7 +44,8 @@ fn main() {
     let result = route_token_call(&txn_input, &ctx);
 
     // Commit the result
-    sp1_zkvm::io::commit(&result);
+    let result_bytes = borsh::to_vec(&result).expect("Failed to serialize result");
+    sp1_zkvm::io::write(1, &result_bytes);
 }
 
 fn route_token_call(input: &TransactionInput, ctx: &ExecutionContext) -> TransactionOutput {

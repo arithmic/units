@@ -18,6 +18,13 @@ pub struct MyNFTTokenData {
     pub collectible_image_data: Vec<u8>,
 }
 
+/// Empty Aadhaar Token for demonstration purposes
+#[derive(BorshSerialize, BorshDeserialize, Clone, Debug)]
+pub struct AadhaarToken {
+    pub token_id: [u8; 32],
+    pub owner_id: Address,
+}
+
 pub struct NFTToken {
     pub admin_address: Address,
     pub token_name: [u8; 32], // Fixed identifier for the token
