@@ -10,7 +10,7 @@ use borsh::to_vec;
 use execution_engine::common::TransactionInput;
 use execution_engine::types::Address;
 use sp1_sdk::EnvProver;
-use tokens::MyNFTTokenData;
+use tokens::{MyNFTTokenData, TransferInput};
 
 use workflow_layer::execute_transaction;
 use workflow_layer::zk_proof::generate_zk_proof;
@@ -46,6 +46,11 @@ fn main() {
     println!("  New Owner: {}", hex::encode(to_address));
     println!();
 
+    let transfer_input = TransferInput {
+        token_id: nft_token.token_id,
+        new_owner: to_address,
+    };
+
     let transaction_input = TransactionInput {
         token_name: [84u8; 32],
         function_name: "transfer".to_string(),
@@ -59,7 +64,7 @@ fn main() {
         transaction_hash: [0u8; 32],
         token_id: "NFTToken".to_string(),
         nonce: 0,
-        input_data: to_vec(&nft_token).expect("Failed to serialize NFT data"),
+        input_data: to_vec(&transfer_input).expect("Failed to serialize transfer input"),
     };
     if let Err(e) = execute_nft_flow(
         &client,
@@ -149,8 +154,11 @@ fn initiate_nft_transfer(
     let transaction_id = format!("txn_{}", hex::encode(&token.token_id[..8]));
 
     // future: Prefetch the reads
-
     // Create transaction input for execution
+    let transfer_input = TransferInput {
+        token_id: token.token_id,
+        new_owner: to,
+    };
     let transaction_input = TransactionInput {
         token_name: [84u8; 32],
         function_name: "transfer".to_string(),
@@ -164,7 +172,7 @@ fn initiate_nft_transfer(
         transaction_hash: [0u8; 32],
         token_id: "NFTToken".to_string(),
         nonce: 0,
-        input_data: to_vec(token).expect("Failed to serialize NFT data"),
+        input_data: to_vec(&transfer_input).expect("Failed to serialize NFT data"),
     };
     let res = execute_transaction(client, elf, &transaction_input);
     println!("res: {:?}", res);

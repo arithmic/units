@@ -18,6 +18,21 @@ pub struct MyNFTTokenData {
     pub collectible_image_data: Vec<u8>,
 }
 
+#[derive(BorshSerialize, BorshDeserialize, Clone, Debug)]
+pub struct MintInput {
+    pub token_id: [u8; 32],
+    pub unique_identifier: [u8; 32],
+    pub collectible_hash: [u8; 32],
+    pub owner_id: Address,
+    pub collectible_image_data: Vec<u8>,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Clone, Debug)]
+pub struct TransferInput {
+    pub token_id: [u8; 32],
+    pub new_owner: Address,
+}
+
 /// Empty Aadhaar Token for demonstration purposes
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug)]
 pub struct AadhaarToken {
@@ -96,18 +111,18 @@ impl NFTToken {
         }
 
         // Deserialize NFT token data directly using borsh
-        let nft_data = from_slice::<MyNFTTokenData>(input).map_err(|_| TokenError::InvalidInput)?;
+        let mint_input = from_slice::<MintInput>(input).map_err(|_| TokenError::InvalidInput)?;
 
-        if Self::find_nft_owner(&nft_data.token_id, ctx.pre_state).is_some() {
+        if Self::find_nft_owner(&mint_input.token_id, ctx.pre_state).is_some() {
             return Err(TokenError::Custom(1)); // Token already exists
         }
 
         // Store only the owner in the state (32 bytes)
         let mut value = [0u8; 32];
-        value.copy_from_slice(&nft_data.owner_id);
+        value.copy_from_slice(&mint_input.owner_id);
 
         let nft_write = KeyValue {
-            key: Self::get_nft_key(&nft_data.token_id),
+            key: Self::get_nft_key(&mint_input.token_id),
             value,
         };
 
@@ -117,18 +132,12 @@ impl NFTToken {
     }
 
     fn transfer(&self, ctx: &ExecutionContext, input: &[u8]) -> TokenResult<TransactionReceipt> {
-        if input.len() < 64 {
-            return Err(TokenError::InvalidInput);
-        }
-
-        let mut token_id = [0u8; 32];
-        let mut new_owner = [0u8; 32];
-
-        token_id.copy_from_slice(&input[0..32]);
-        new_owner.copy_from_slice(&input[32..64]);
+        let transfer_input =
+            from_slice::<TransferInput>(input).map_err(|_| TokenError::InvalidInput)?;
 
         let current_owner =
-            Self::find_nft_owner(&token_id, ctx.pre_state).ok_or(TokenError::Custom(2))?; // Token not found
+            Self::find_nft_owner(&transfer_input.token_id, ctx.pre_state)
+                .ok_or(TokenError::Custom(2))?; // Token not found
 
         if current_owner != ctx.signer {
             return Err(TokenError::Unauthorized);
@@ -136,10 +145,10 @@ impl NFTToken {
 
         // Store the new owner in the state
         let mut value = [0u8; 32];
-        value.copy_from_slice(&new_owner);
+        value.copy_from_slice(&transfer_input.new_owner);
 
         let nft_write = KeyValue {
-            key: Self::get_nft_key(&token_id),
+            key: Self::get_nft_key(&transfer_input.token_id),
             value,
         };
 
