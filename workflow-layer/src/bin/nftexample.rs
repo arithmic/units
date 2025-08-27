@@ -12,7 +12,12 @@ use execution_engine::{
 };
 use sp1_sdk::{EnvProver, SP1Stdin};
 use tokens::{MintInput, MyNFTTokenData, TransferInput};
-use workflow_layer::zk_proof::generate_zk_proof;
+use workflow_layer::{
+    zk_proof::generate_zk_proof,
+    save_transaction_log_to_database,
+    commit_global_state,
+    submit_proof_to_public_ledger,
+};
 
 fn main() {
     // Setup SP1 environment
@@ -35,25 +40,14 @@ fn main() {
     let from_address: Address = nft_token.owner_id;
     let to_address: Address = [3u8; 32];
 
-    println!("Demo NFT Token:");
-    println!(
-        "  Unique Identifier: {}",
-        hex::encode(nft_token.unique_identifier)
-    );
-    println!("  Current Owner: {}", hex::encode(from_address));
-    println!("  New Owner: {}", hex::encode(to_address));
-    println!();
+    println!("NFT Transfer: {} -> {}", hex::encode(&from_address[..4]), hex::encode(&to_address[..4]));
 
     if let Err(e) = execute_nft_flow(&client, &elf, &mut nft_token, from_address, to_address) {
-        println!("❌ NFT Flow failed: {}", e);
+        println!("❌ Failed: {}", e);
         return;
     }
 
-    println!("\n=== Workflow Layer Demo Completed Successfully ===");
-    println!("This demonstrates the UNITS Core Workflow Layer architecture");
-    println!(
-        "and how it orchestrates transaction processing between Application and Kernel layers."
-    );
+    println!("✅ Workflow Layer Demo Complete");
 }
 
 fn execute_nft_flow(
@@ -63,11 +57,9 @@ fn execute_nft_flow(
     from: Address,
     to: Address,
 ) -> Result<(), String> {
-    println!("=== 7-Step NFT Flow Using Workflow Layer ===\n");
 
-    // Step 1 (future): Validate request from Application, uses Workflow Layer's validate_identity_and_policy() architecture
-    // Step 2: Mint the NFT to create an initial state
-    println!("Step 2: Mint NFT to create initial state");
+    // Step 1: Mint NFT
+    println!("1. Minting NFT...");
     let admin_address = [1u8; 32];
     let mint_input = MintInput {
         unique_identifier: token.unique_identifier,
@@ -92,10 +84,10 @@ fn execute_nft_flow(
     };
 
     let mint_writes = execute_transaction(client, elf, &mint_transaction_input)?;
-    println!("   NFT minted successfully, state created.\n");
+    println!("   ✅ Minted");
 
-    // Step 3: Initiate transfer and create transaction log
-    println!("Step 3: initiate_nft_transfer() - Create transaction log");
+    // Step 2: Execute transfer
+    println!("2. Executing transfer...");
     let transfer_input = TransferInput {
         unique_identifier: token.unique_identifier,
         new_owner: to,
@@ -117,27 +109,30 @@ fn execute_nft_flow(
     };
 
     let transfer_writes = execute_transaction(client, elf, &transfer_transaction_input)?;
-    println!("   NFT transfer executed successfully.\n");
+    println!("   ✅ Executed");
 
-    // Step 4: Generate ZK proof
-    println!("Step 4: generate_zk_proof() - Generate and verify ZK proof");
+    // Step 3: Generate ZK proof
+    println!("3. Generating ZK proof...");
     let proof_result = generate_zk_proof(client, elf, &transfer_transaction_input)?;
-    println!("Successfully generated and verified ZK proof!");
-    println!("proof_result: {:?}", proof_result.metadata);
+    println!("   ✅ Proof generated ({} bytes)", proof_result.metadata.proof_size);
 
-    // Step 5: Save transaction log and proof to database
+    // Step 4: Save to database
+    println!("4. Saving to database...");
+    save_transaction_log_to_database(&transfer_writes)?;
+    println!("   ✅ Saved");
 
-    // Step 6: Commit transfer (update token state)
-    println!("   Uses Workflow Layer's StateStore with CAS operations");
+    // Step 5: Commit state
+    println!("5. Committing state...");
+    commit_global_state(&transfer_writes)?;
     token.owner_id = to;
+    println!("   ✅ Committed");
 
-    // Step 7: Save to public ledger (blockchain)
+    // Step 6: Submit to ledger
+    println!("6. Submitting to ledger...");
+    submit_proof_to_public_ledger(&proof_result)?;
+    println!("   ✅ Submitted");
 
-    // Step 8: Update transaction log with ledger metadata
-
-    println!("8-Step NFT Flow Completed Successfully!");
-    println!("   Final token owner: {}", hex::encode(to));
-    println!("   Proof hash: {}", proof_result.metadata.proof_hash);
+    println!("✅ Transfer complete: {}", proof_result.metadata.proof_hash);
 
     Ok(())
 }
@@ -170,3 +165,4 @@ fn execute_transaction(
 
     Ok(output.receipt.unwrap().writes)
 }
+
