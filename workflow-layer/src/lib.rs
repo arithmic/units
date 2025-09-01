@@ -31,17 +31,17 @@ pub use zk_proof::{execute_transaction, generate_zk_proof, save_proof_to_file};
 
 /// Save transaction log and proof to database
 /// Accepts the output of execute_transaction for database storage
-pub fn save_transaction_log_to_database(transfer_output: &Vec<KeyValue>) -> Result<(), String> {
+pub fn save_transaction_log_to_database(writes: &Vec<KeyValue>) -> Result<(), String> {
     // TODO: Implement database save functionality
-    println!("     Saving {} state changes to database", transfer_output.len());
+    println!("Saving {} state changes to database", writes.len());
     Ok(())
 }
 
 /// Commit global state updates
 /// Accepts the output of execute_transaction to save global state
-pub fn commit_global_state(transfer_output: &Vec<KeyValue>) -> Result<(), String> {
-    // TODO: Implement global state commit functionality  
-    println!("     Committing {} state updates", transfer_output.len());
+pub fn commit_global_state(writes: &Vec<KeyValue>) -> Result<(), String> {
+    // TODO: Implement global state commit functionality
+    println!("Committing {} state updates", writes.len());
     Ok(())
 }
 
@@ -49,6 +49,9 @@ pub fn commit_global_state(transfer_output: &Vec<KeyValue>) -> Result<(), String
 /// Accepts ProofResult to publish to the public ledger
 pub fn submit_proof_to_public_ledger(proof_result: &ProofResult) -> Result<(), String> {
     // TODO: Implement public ledger submission functionality
-    println!("     Submitting proof {} to ledger", &proof_result.metadata.proof_hash[..12]);
+    println!(
+        "Submitting proof {} to ledger",
+        &proof_result.metadata.proof_hash[..12]
+    );
     Ok(())
 }

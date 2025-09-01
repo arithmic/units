@@ -31,8 +31,6 @@ pub struct TransferInput {
     pub new_owner: Address,
 }
 
-
-
 pub struct NFTToken {
     pub admin_address: Address,
     pub token_name: [u8; 32], // Fixed identifier for the token
@@ -107,7 +105,9 @@ impl NFTToken {
         let mint_input = from_slice::<MintInput>(input).map_err(|_| TokenError::InvalidInput)?;
 
         if Self::find_nft_owner(&mint_input.unique_identifier, ctx.pre_state).is_some() {
-            return Err(TokenError::Custom("Unique identifier already exists".to_string()));
+            return Err(TokenError::Custom(
+                "Unique identifier already exists".to_string(),
+            ));
         }
 
         // Store only the owner in the state (32 bytes)
@@ -115,7 +115,7 @@ impl NFTToken {
         value.copy_from_slice(&mint_input.owner_id);
 
         let nft_write = KeyValue {
-            key: Self::get_nft_key(&mint_input.unique_identifier),
+            key: mint_input.unique_identifier.clone(),
             value,
         };
 
@@ -128,9 +128,10 @@ impl NFTToken {
         let transfer_input =
             from_slice::<TransferInput>(input).map_err(|_| TokenError::InvalidInput)?;
 
-        let current_owner =
-            Self::find_nft_owner(&transfer_input.unique_identifier, ctx.pre_state)
-                .ok_or(TokenError::Custom("Unique identifier not found".to_string()))?;
+        let current_owner = Self::find_nft_owner(&transfer_input.unique_identifier, ctx.pre_state)
+            .ok_or(TokenError::Custom(
+                "Unique identifier not found".to_string(),
+            ))?;
 
         if current_owner != ctx.signer {
             return Err(TokenError::Unauthorized);
@@ -150,4 +151,3 @@ impl NFTToken {
         })
     }
 }
-

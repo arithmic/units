@@ -4,21 +4,22 @@ use alloc::vec;
 use borsh::{BorshDeserialize, BorshSerialize};
 use execution_engine::{
     traits::TokenContract,
-    types::{
-        Address, ExecutionContext, KeyValue, TokenError, TokenResult, TransactionReceipt,
-    },
+    types::{Address, ExecutionContext, KeyValue, TokenError, TokenResult, TransactionReceipt},
     utils::{get_nonce_from_pre_state, hash_nonce_key},
 };
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug)]
 pub struct AadhaarToken {
-    pub token_id: [u8; 32],
+    pub token_name: [u8; 32],
     pub owner_id: Address,
 }
 
 impl AadhaarToken {
     pub fn new(token_id: [u8; 32], owner_id: Address) -> Self {
-        Self { token_id, owner_id }
+        Self {
+            token_name: token_id,
+            owner_id,
+        }
     }
 
     // Internal function to handle minting logic
@@ -59,7 +60,10 @@ impl TokenContract for AadhaarToken {
         let nonce_key = hash_nonce_key(ctx.signer);
         let mut nonce_bytes = [0u8; 32];
         nonce_bytes[0..8].copy_from_slice(&(current_nonce + 1).to_le_bytes());
-        let nonce_write = KeyValue { key: nonce_key, value: nonce_bytes };
+        let nonce_write = KeyValue {
+            key: nonce_key,
+            value: nonce_bytes,
+        };
 
         let mut receipt = match function {
             "mint" => self.mint(ctx),
