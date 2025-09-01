@@ -1,13 +1,13 @@
 [workspace]
 members = [
     "execution-engine",
-    "tokens",
+    "tokens", 
     "program",
     "zk-proof",
     "workflow-layer",
+    "smt",
 ]
 resolver = "2"
-
 
 [workspace.dependencies]
 alloy-sol-types = "1.0"

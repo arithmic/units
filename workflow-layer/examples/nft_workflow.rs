@@ -17,6 +17,7 @@ use workflow_layer::{
     save_transaction_log_to_database,
     commit_global_state,
     submit_proof_to_public_ledger,
+    GlobalStateSMT,
 };
 
 fn main() {
@@ -40,9 +41,13 @@ fn main() {
     let from_address: Address = nft_token.owner_id;
     let to_address: Address = [3u8; 32];
 
+    // Create an instance of the global state SMT
+    let mut global_state_smt = GlobalStateSMT::default();
+    println!("🚀 Initial SMT root: {:?}", global_state_smt.root());
+
     println!("NFT Transfer: {} -> {}", hex::encode(&from_address[..4]), hex::encode(&to_address[..4]));
 
-    if let Err(e) = execute_nft_flow(&client, &elf, &mut nft_token, from_address, to_address) {
+    if let Err(e) = execute_nft_flow(&client, &elf, &mut nft_token, from_address, to_address, &mut global_state_smt) {
         println!("❌ Failed: {}", e);
         return;
     }
@@ -56,6 +61,7 @@ fn execute_nft_flow(
     token: &mut MyNFTTokenData,
     from: Address,
     to: Address,
+    smt: &mut GlobalStateSMT,
 ) -> Result<(), String> {
 
     // Step 1: Mint NFT
@@ -123,7 +129,7 @@ fn execute_nft_flow(
 
     // Step 5: Commit state
     println!("5. Committing state...");
-    commit_global_state(&transfer_writes)?;
+    commit_global_state(smt, &transfer_writes)?;
     token.owner_id = to;
     println!("   ✅ Committed");
 
