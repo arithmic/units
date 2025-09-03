@@ -71,26 +71,12 @@ impl TokenContract for NFTToken {
         function: &str,
         input: &[u8],
     ) -> TokenResult<TransactionReceipt> {
-        let current_nonce = get_nonce_from_pre_state(ctx.signer, ctx.pre_state);
-        if ctx.nonce != current_nonce {
-            return Err(TokenError::InvalidNonce);
-        }
-
-        let nonce_key = hash_nonce_key(ctx.signer);
-        let mut nonce_bytes = [0u8; 32];
-        nonce_bytes[0..8].copy_from_slice(&(current_nonce + 1).to_le_bytes());
-        let nonce_write = KeyValue {
-            key: nonce_key,
-            value: nonce_bytes,
-        };
-
-        let mut receipt = match function {
+        let receipt = match function {
             "mint" => self.mint(ctx, input),
             "transfer" => self.transfer(ctx, input),
             _ => Err(TokenError::FunctionNotFound),
         }?;
 
-        receipt.writes.push(nonce_write);
         Ok(receipt)
     }
 }

@@ -9,6 +9,7 @@ authors = ["Units Team"]
 execution-engine = { path = "../execution-engine" }
 alloy-sol-types = { workspace = true }
 borsh = { version = "1.5.7", default-features = false, features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 
 [features]
 default = []

@@ -12,6 +12,8 @@ use execution_engine::types::{ExecutionContext, TokenError};
 use tokens::aadhaar_token::AadhaarToken;
 use tokens::example_token::MyToken;
 use tokens::nft_token::NFTToken;
+use tokens::loan_token::LoanToken;
+use tokens::loan_pool_token::LoanPoolToken;
 
 fn main() {
     // Read input from stdin
@@ -66,6 +68,16 @@ fn route_token_call(input: &TransactionInput, ctx: &ExecutionContext) -> Transac
         "Aadhaar" => {
             let aadhaar_contract = AadhaarToken::new([0u8; 32], [0u8; 32]);
             aadhaar_contract.execute(ctx, &input.function_name, &input.input_data)
+        }
+        "LoanToken" => {
+            let admin_address = [1u8; 32]; // For now, hardcoded
+            let loan_contract = LoanToken::new(admin_address);
+            loan_contract.execute(ctx, &input.function_name, &input.input_data)
+        }
+        "LoanPoolToken" => {
+            let admin_address = [1u8; 32]; // For now, hardcoded
+            let pool_contract = LoanPoolToken::new(admin_address);
+            pool_contract.execute(ctx, &input.function_name, &input.input_data)
         }
         _ => Err(TokenError::Custom("Unknown token".to_string())),
     };
