@@ -7,7 +7,6 @@ use execution_engine::traits::TokenContract;
 use execution_engine::types::{
     Address, ExecutionContext, KeyValue, TokenError, TokenResult, TransactionReceipt,
 };
-use execution_engine::utils::{get_nonce_from_pre_state, hash_nonce_key};
 
 #[derive(BorshSerialize, BorshDeserialize, Clone, Debug)]
 pub struct MyNFTTokenData {

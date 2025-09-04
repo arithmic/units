@@ -430,9 +430,9 @@ impl LoanToken {
             value: loan_bytes,
         };
 
-        Ok(TransactionReceipt {
-            writes: vec![loan_write],
-        })
+        let mut writes = Vec::new();
+        writes.push(loan_write);
+        Ok(TransactionReceipt { writes })
     }
 
     fn update_internal(
@@ -452,9 +452,9 @@ impl LoanToken {
             value: [1u8; 32], // Placeholder for updated loan data
         };
 
-        Ok(TransactionReceipt {
-            writes: vec![loan_write],
-        })
+        let mut writes = Vec::new();
+        writes.push(loan_write);
+        Ok(TransactionReceipt { writes })
     }
 
     fn get_loan_key(&self, loan_account_number: &str) -> [u8; 32] {

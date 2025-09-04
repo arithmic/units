@@ -1,23 +1,3 @@
-//! Workflow Layer - UNITS Core Architecture
-//!
-//! This crate implements the Workflow Layer component of the UNITS Core design.
-//! The Workflow Layer orchestrates transaction processing between the Application Layer and Kernel Modules.
-//!
-//! ## UNITS Core Architecture
-//!
-//! The Workflow Layer sits between the Application Layer and Kernel Modules:
-//! - **Application Layer** → submits Instructions with JWT + signatures  
-//! - **Workflow Layer** → handles identity/policy, planning, async execution, and receipts
-//! - **Kernel Modules** → perform stateless verification and return MutationPlans
-//!
-//! ## Workflow Layer Responsibilities
-//!
-//! - **Identity & Policy**: JWT/OIDC validation, ACL/ABAC evaluation
-//! - **Planning**: Build readset/writeset, prefetch data for kernel execution  
-//! - **Async Executor**: Submit kernel steps, apply MutationPlans under locks
-//! - **Receipts/Audit**: Persist TransactionReceipts with policy snapshots
-//! - **State Management**: CAS operations with per-key versioning and WAL
-
 pub mod types;
 pub mod zk_proof;
 
@@ -47,10 +27,7 @@ pub fn save_transaction_log_to_database(writes: &Vec<KeyValue>) -> Result<(), St
 
 /// Commit global state updates to the SMT
 /// Accepts a mutable reference to the SMT and the key-value writes
-pub fn commit_global_state(
-    smt: &mut GlobalStateSMT,
-    writes: &Vec<KeyValue>,
-) -> Result<(), String> {
+pub fn commit_global_state(smt: &mut GlobalStateSMT, writes: &Vec<KeyValue>) -> Result<(), String> {
     println!("Committing {} state updates to SMT...", writes.len());
 
     // 1. Prepare key-value pairs for the SMT

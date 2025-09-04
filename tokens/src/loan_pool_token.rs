@@ -301,10 +301,9 @@ impl LoanPoolToken {
             key: pool_key,
             value: pool_bytes,
         };
-
-        Ok(TransactionReceipt {
-            writes: vec![pool_write],
-        })
+        let mut writes = Vec::new();
+        writes.push(pool_write);
+        Ok(TransactionReceipt { writes })
     }
 
     fn update_internal(
@@ -324,9 +323,9 @@ impl LoanPoolToken {
             value: [1u8; 32], // Placeholder for updated pool data
         };
 
-        Ok(TransactionReceipt {
-            writes: vec![pool_write],
-        })
+        let mut writes = Vec::new();
+        writes.push(pool_write);
+        Ok(TransactionReceipt { writes })
     }
 
     fn get_pool_key(&self, pool_name: &str) -> [u8; 32] {

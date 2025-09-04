@@ -4,14 +4,12 @@
 //!
 //! ```
 //! use sparse_merkle_tree::{
-//!     blake2b::Blake2bHasher, default_store::DefaultStore,
-//!     error::Error, MerkleProof,
-//!     SparseMerkleTree, traits::Value, H256
+//!     default_store::DefaultStore, error::Error, MerkleProof,
+//!     sha256::Sha256Hasher, SparseMerkleTree, traits::Value, H256
 //! };
-//! use blake2b_rs::{Blake2b, Blake2bBuilder};
 //!
 //! // define SMT
-//! type SMT = SparseMerkleTree<Blake2bHasher, Word, DefaultStore<Word>>;
+//! type SMT = SparseMerkleTree<Sha256Hasher, Word, DefaultStore<Word>>;
 //!
 //! // define SMT value
 //! #[derive(Default, Clone)]
@@ -21,20 +19,17 @@
 //!        if self.0.is_empty() {
 //!            return H256::zero();
 //!        }
-//!        let mut buf = [0u8; 32];
-//!        let mut hasher = new_blake2b();
+//!        use sha2::{Sha256, Digest};
+//!        let mut hasher = Sha256::new();
 //!        hasher.update(self.0.as_bytes());
-//!        hasher.finalize(&mut buf);
-//!        buf.into()
+//!        let result = hasher.finalize();
+//!        let mut hash = [0u8; 32];
+//!        hash.copy_from_slice(&result);
+//!        hash.into()
 //!    }
 //!    fn zero() -> Self {
 //!        Default::default()
 //!    }
-//! }
-//!
-//! // helper function
-//! fn new_blake2b() -> Blake2b {
-//!     Blake2bBuilder::new(32).personal(b"SMT").build()
 //! }
 //!
 //! fn construct_smt() {
@@ -44,11 +39,13 @@
 //!         .enumerate()
 //!     {
 //!         let key: H256 = {
-//!             let mut buf = [0u8; 32];
-//!             let mut hasher = new_blake2b();
+//!             use sha2::{Sha256, Digest};
+//!             let mut hasher = Sha256::new();
 //!             hasher.update(&(i as u32).to_le_bytes());
-//!             hasher.finalize(&mut buf);
-//!             buf.into()
+//!             let result = hasher.finalize();
+//!             let mut hash = [0u8; 32];
+//!             hash.copy_from_slice(&result);
+//!             hash.into()
 //!         };
 //!         let value = Word(word.to_string());
 //!         // insert key value into tree
@@ -61,9 +58,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod blake2b;
-#[cfg(feature = "smtc")]
-pub mod ckb_smt;
 pub mod default_store;
 pub mod error;
 pub mod h256;
@@ -74,18 +68,11 @@ pub mod sha256;
 mod tests;
 pub mod traits;
 mod tree;
-#[cfg(feature = "trie")]
-mod trie_tree;
 
-#[cfg(feature = "smtc")]
-pub use ckb_smt::{SMTBuilder, SMT};
 pub use h256::H256;
 pub use merkle_proof::{CompiledMerkleProof, MerkleProof};
-#[cfg(not(feature = "trie"))]
 pub use tree::SparseMerkleTree;
 pub use tree::{BranchKey, BranchNode};
-#[cfg(feature = "trie")]
-pub use trie_tree::SparseMerkleTree;
 
 /// Expected path size: log2(256) * 2, used for hint vector capacity
 pub const EXPECTED_PATH_SIZE: usize = 16;
