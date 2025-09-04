@@ -4,7 +4,7 @@ members = [
     "tokens", 
     "program",
     "zk-proof",
-    "workflow-layer",
+    "execution-server",
     "smt",
 ]
 resolver = "2"

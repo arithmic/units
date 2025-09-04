@@ -9,7 +9,7 @@ use tokens::{
     loantypes::{Applicant, Repayment},
     loan_token::{LoanToken, MintLoanTokenInput, UpdateLoanTokenInput},
 };
-use workflow_layer::{
+use execution_server::{
     save_transaction_log_to_database,
     commit_global_state,
     GlobalStateSMT,

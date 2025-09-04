@@ -12,7 +12,7 @@ use execution_engine::{
 };
 use sp1_sdk::{EnvProver, SP1Stdin};
 use tokens::{MintInput, MyNFTTokenData, TransferInput};
-use workflow_layer::{
+use execution_server::{
     zk_proof::generate_zk_proof,
     save_transaction_log_to_database,
     commit_global_state,
